@@ -55,7 +55,12 @@ export default function ContactList() {
 
   const columns: ColumnsType<any> = [
     { title: 'Nom', dataIndex: 'Name', sorter: (a, b) => (a.Name || '').localeCompare(b.Name || '') },
-    { title: 'E-mail externe', dataIndex: 'ExternalEmailAddress', render: v => <Tag color="orange">{v}</Tag> },
+    { title: 'E-mail externe', dataIndex: 'ExternalEmailAddress', ellipsis: true,
+      render: v => {
+        const s = String(v ?? '');
+        return <Tag color="orange" style={{ maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block' }} title={s}>{s}</Tag>;
+      },
+    },
     { title: 'Alias', dataIndex: 'Alias' },
     { title: 'OU', dataIndex: 'OrganizationalUnit', ellipsis: true },
     { title: 'Créé le', dataIndex: 'WhenCreated', render: v => v ? dayjs(v).format('DD/MM/YYYY') : '-' },

@@ -8,6 +8,7 @@ import {
   CheckCircleOutlined,
   WarningOutlined,
 } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
 import { exchangeApi } from '../services/api.service';
 import { useAuth } from '../context/useAuth';
 
@@ -24,6 +25,7 @@ interface DashboardStats {
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<DashboardStats>({
@@ -125,7 +127,7 @@ export default function Dashboard() {
 
       <Row gutter={[16, 16]}>
         <Col xs={24} sm={12} md={6}>
-          <Card>
+          <Card hoverable style={{ cursor: 'pointer' }} onClick={() => navigate('/recipients?tab=mailboxes')}>
             <Statistic
               title="Boîtes aux lettres"
               value={stats.mailboxCount}
@@ -136,7 +138,7 @@ export default function Dashboard() {
         </Col>
 
         <Col xs={24} sm={12} md={6}>
-          <Card>
+          <Card hoverable style={{ cursor: 'pointer' }} onClick={() => navigate('/recipients?tab=groups')}>
             <Statistic
               title="Groupes de distribution"
               value={stats.groupCount}
@@ -147,7 +149,7 @@ export default function Dashboard() {
         </Col>
 
         <Col xs={24} sm={12} md={6}>
-          <Card>
+          <Card hoverable style={{ cursor: 'pointer' }} onClick={() => navigate('/servers?tab=databases')}>
             <Statistic
               title="Bases de données"
               value={stats.databaseCount}
@@ -158,7 +160,7 @@ export default function Dashboard() {
         </Col>
 
         <Col xs={24} sm={12} md={6}>
-          <Card>
+          <Card hoverable style={{ cursor: 'pointer' }} onClick={() => navigate('/mailflow?tab=queues')}>
             <Statistic
               title="Messages en file"
               value={stats.totalMessages}
