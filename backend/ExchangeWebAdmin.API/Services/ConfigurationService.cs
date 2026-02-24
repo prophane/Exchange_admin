@@ -279,15 +279,21 @@ namespace ExchangeWebAdmin.API.Services
             });
 
             byte[] pfxBytes;
-            if (exportResult is List<Dictionary<string, object>> rows && rows.Count > 0)
+            if (exportResult is List<Dictionary<string, object>> rows && rows.Count > 0
+                && rows[0].TryGetValue("_bytes", out var bytesVal) && bytesVal is byte[] exportedBytes)
             {
-                var val = rows[0].Values.FirstOrDefault();
-                pfxBytes = val is byte[] b ? b : Convert.FromBase64String(val?.ToString() ?? "");
+                pfxBytes = exportedBytes;
             }
             else if (exportResult is byte[] raw)
+            {
                 pfxBytes = raw;
+            }
             else
-                throw new Exception($"Export-ExchangeCertificate n'a retourné aucun résultat depuis {fromServer}");
+            {
+                throw new Exception(
+                    $"Export-ExchangeCertificate n'a retourné aucune donnée binaire depuis {fromServer}. "
+                    + "Vérifiez que le certificat existe et que la clé privée est marquée exportable.");
+            }
 
             // SecureString pour l'import
             var importPwd = new System.Security.SecureString();
@@ -303,11 +309,36 @@ namespace ExchangeWebAdmin.API.Services
                 ["PrivateKeyExportable"] = true,
             });
 
-            var newThumb = thumbprint;
+            var newThumb = thumbprint; // défaut : même thumbprint (PFX source)
             if (importResult is List<Dictionary<string, object>> rows2 && rows2.Count > 0)
             {
                 var row = rows2[0];
-                if (row.TryGetValue("Thumbprint", out var tp) && tp != null) newThumb = tp.ToString()!;
+                if (row.TryGetValue("Thumbprint", out var tp) && tp?.ToString()?.Length == 40)
+                    newThumb = tp.ToString()!.ToUpperInvariant();
+            }
+
+            // Fallback : Get-ExchangeCertificate si Import n'a pas retourné le Thumbprint
+            if (newThumb == thumbprint || newThumb.Length != 40)
+            {
+                _logger.LogInformation("Récupération Thumbprint après import cible via Get-ExchangeCertificate");
+                try
+                {
+                    var findResult = await _psService.ExecuteScriptAsync(
+                        $"Get-ExchangeCertificate -Server '{safeTo}' | Select-Object Thumbprint, NotBefore")
+                        as List<Dictionary<string, object>>;
+                    if (findResult?.Count > 0)
+                    {
+                        // Le cert le plus récemment importé est celui qu'on vient d'importer
+                        var newest = findResult
+                            .OrderByDescending(c =>
+                                c.TryGetValue("NotBefore", out var nb) && nb is DateTime d ? d : DateTime.MinValue)
+                            .FirstOrDefault();
+                        if (newest?.TryGetValue("Thumbprint", out var tp2) == true
+                            && tp2?.ToString()?.Length == 40)
+                            newThumb = tp2.ToString()!.ToUpperInvariant();
+                    }
+                }
+                catch (Exception ex) { _logger.LogWarning("Fallback Get-ExchangeCertificate cible: {Msg}", ex.Message); }
             }
 
             // Enable sur le serveur cible

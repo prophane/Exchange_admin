@@ -243,6 +243,14 @@ public class PowerShellService : IPowerShellService, IDisposable
             {
                 foreach (var result in results)
                 {
+                    // Cas spécial : byte[] brut (ex: Export-ExchangeCertificate -BinaryEncoded)
+                    // Le PSObject wrapper ne contient que Length/Rank/... → on stocke les bytes directement.
+                    if (result?.BaseObject is byte[] rawBytes && rawBytes.Length > 0)
+                    {
+                        convertedResults.Add(new Dictionary<string, object> { ["_bytes"] = rawBytes });
+                        continue;
+                    }
+
                     var dict = new Dictionary<string, object>();
                     
                     if (result?.BaseObject != null)

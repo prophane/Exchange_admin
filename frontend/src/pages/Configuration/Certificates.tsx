@@ -741,7 +741,7 @@ export default function Certificates() {
               <div style={{ marginTop: 12 }}>
                 <Text strong>{renewingLabel ? "Certificat Let's Encrypt renouvelé avec succès !" : "Certificat Let's Encrypt importé avec succès !"}</Text>
               </div>
-              {leThumbprint && (
+              {leThumbprint?.length === 40 && (
                 <div style={{ marginTop: 8 }}>
                   <Text type="secondary">Empreinte : </Text>
                   <code style={{ fontSize: 11 }}>{leThumbprint}</code>
@@ -752,7 +752,7 @@ export default function Certificates() {
                 <Button type="primary" onClick={() => setLeOpen(false)}>Fermer</Button>
               </div>
             </div>
-            {servers.length > 1 && leThumbprint && leServer && (() => {
+            {servers.length > 1 && leThumbprint?.length === 40 && leServer && (() => {
               const others = servers.filter((s: any) => (s.Name ?? s.Fqdn) !== leServer);
               return others.length > 0 ? (
                 <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 16, marginTop: 8 }}>
@@ -955,7 +955,7 @@ export default function Certificates() {
               <div style={{ marginTop: 12 }}>
                 <strong>{renewingLabel ? 'Certificat CA renouvelé et activé avec succès !' : 'Certificat CA importé et activé avec succès !'}</strong>
               </div>
-              {caThumb && (
+              {caThumb?.length === 40 && (
                 <div style={{ marginTop: 8 }}>
                   <span style={{ color: '#888' }}>Empreinte : </span>
                   <code style={{ fontSize: 11 }}>{caThumb}</code>
@@ -966,7 +966,7 @@ export default function Certificates() {
                 <Button type="primary" onClick={() => setCaOpen(false)}>Fermer</Button>
               </div>
             </div>
-            {servers.length > 1 && caThumb && caServer && (() => {
+            {servers.length > 1 && caThumb?.length === 40 && caServer && (() => {
               const others = servers.filter((s: any) => (s.Name ?? s.Fqdn) !== caServer);
               return others.length > 0 ? (
                 <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 16, marginTop: 8 }}>

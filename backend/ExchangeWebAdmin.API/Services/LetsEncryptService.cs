@@ -351,8 +351,41 @@ public class LetsEncryptService
             }
         }
 
+        // Fallback thumbprint recovery : si Import-ExchangeCertificate n'a pas retourné de Thumbprint
+        // utilisable, on interroge Get-ExchangeCertificate et on cherche FriendlyName="LetsEncrypt".
+        if (thumbprint == "OK" || thumbprint.Length != 40)
+        {
+            _logger.LogInformation("🔍 Thumbprint non capturé depuis Import — récupération via Get-ExchangeCertificate");
+            try
+            {
+                var srvArg2 = !string.IsNullOrEmpty(exchangeServer)
+                    ? $" -Server '{exchangeServer.Replace("'", "''")}'"
+                    : "";
+                var certs = await _psService.ExecuteScriptAsync(
+                    $"Get-ExchangeCertificate{srvArg2} | Select-Object Thumbprint, FriendlyName, NotBefore")
+                    as List<Dictionary<string, object>>;
+                if (certs != null)
+                {
+                    var match = certs.FirstOrDefault(c =>
+                        c.TryGetValue("FriendlyName", out var fn) && fn?.ToString() == "LetsEncrypt");
+                    // Fallback: cert le plus récent
+                    match ??= certs
+                        .OrderByDescending(c =>
+                            c.TryGetValue("NotBefore", out var nb) && nb is DateTime d ? d : DateTime.MinValue)
+                        .FirstOrDefault();
+                    if (match?.TryGetValue("Thumbprint", out var tp) == true
+                        && tp?.ToString()?.Length == 40)
+                        thumbprint = tp.ToString()!.ToUpperInvariant();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning("⚠️ Impossible de récupérer le thumbprint via Get-ExchangeCertificate: {Msg}", ex.Message);
+            }
+        }
+
         // Enable services — thumbprint injected as literal string, no property access
-        if (!string.IsNullOrWhiteSpace(thumbprint) && thumbprint != "OK")
+        if (!string.IsNullOrWhiteSpace(thumbprint) && thumbprint != "OK" && thumbprint.Length == 40)
         {
             var escapedThumb = thumbprint.Replace("'", "''");
             var serverArg = !string.IsNullOrEmpty(exchangeServer)
