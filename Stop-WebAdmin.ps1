@@ -2,6 +2,12 @@
 # STOP-WebAdmin.ps1 : Arrêt Backend & Frontend
 # ============================================
 
+# Forcer UTF-8 pour que les caractères spéciaux s'affichent correctement
+# quelle que soit la machine (chcp 65001 n'est pas toujours actif)
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
+$OutputEncoding = [System.Text.UTF8Encoding]::new()
+try { chcp 65001 | Out-Null } catch {}
+
 Write-Host "`n═══════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host "  ARRÊT - EXCHANGE WEB ADMIN" -ForegroundColor Cyan
 Write-Host "═══════════════════════════════════════════`n" -ForegroundColor Cyan

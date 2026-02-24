@@ -289,6 +289,10 @@ public class PowerShellService : IPowerShellService, IDisposable
             value is DateTime || value is DateTimeOffset || value is Guid)
             return value;
 
+        // Enums .NET → retourner le nom (ex: "Personal", "MoveToArchive")
+        if (value is Enum enumVal)
+            return enumVal.ToString();
+
         // Collections (tableau, liste, etc.) → aplatir chaque élément
         if (value is System.Collections.IEnumerable enumerable && value is not string)
         {
@@ -299,9 +303,17 @@ public class PowerShellService : IPowerShellService, IDisposable
             return list;
         }
 
-        // PSObject imbriqué avec propriétés → convertir en dict
+        // PSObject imbriqué : si sa représentation string est "simple" (enum distant,
+        // timespan, valeur scalaire désérialisée) → retourner ToString()
+        // Sinon, développer en dictionnaire (pour les objets Exchange riches)
         if (value is PSObject nested)
         {
+            var str = nested.ToString();
+            // Une valeur simple ne contient pas d'accolades ni de points-virgules
+            // et reste courte (enum/timespan/quota = < 100 chars)
+            if (!str.Contains('{') && !str.Contains(';') && str.Length < 100)
+                return str;
+
             var dict = new Dictionary<string, object>();
             foreach (var prop in nested.Properties)
             {

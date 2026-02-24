@@ -19,7 +19,7 @@ cd frontend
 npm run dev
 ```
 
-Navigateur : **http://localhost:5173**
+Navigateur : **http://localhost:3000**
 
 ---
 
@@ -49,7 +49,7 @@ cd frontend; npm install; cd ..
 ## Architecture
 
 ```
-Navigateur (http://localhost:5173)
+Navigateur (http://localhost:3000)
 React 18 + Ant Design 5 + Vite + TypeScript
        |
        | HTTP REST API (Axios)
@@ -183,7 +183,7 @@ Get-NetTCPConnection -LocalPort 5000 | ForEach-Object { Stop-Process -Id $_.Owni
 | Élément | Valeur |
 |---|---|
 | Backend | http://localhost:5000 |
-| Frontend | http://localhost:5173 |
+| Frontend | http://localhost:3000 |
 | Auth | WSManConnectionInfo Basic (configurable) |
 | Exchange | Configurable dans `appsettings.json` |
 

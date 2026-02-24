@@ -62,7 +62,7 @@ npm run dev
 
 ## Accès
 
-Navigateur : **http://localhost:5173**
+Navigateur : **http://localhost:3000**
 
 Login : `domaine\utilisateur` ou `utilisateur@domaine.com`
 

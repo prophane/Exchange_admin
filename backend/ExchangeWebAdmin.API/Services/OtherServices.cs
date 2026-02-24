@@ -158,9 +158,7 @@ public class DatabaseService : IDatabaseService
 
         var script = @"
             Get-MailboxDatabase -Status | Select-Object Name, Server, EdbFilePath, LogFolderPath,
-                @{n='IssueWarningQuota';e={$_.IssueWarningQuota.ToString()}},
-                @{n='ProhibitSendQuota';e={$_.ProhibitSendQuota.ToString()}},
-                @{n='ProhibitSendReceiveQuota';e={$_.ProhibitSendReceiveQuota.ToString()}},
+                IssueWarningQuota, ProhibitSendQuota, ProhibitSendReceiveQuota,
                 Mounted | ConvertTo-Json -Depth 3
         ";
 

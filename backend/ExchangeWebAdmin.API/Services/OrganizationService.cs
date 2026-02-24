@@ -233,11 +233,7 @@ public class OrganizationService
 
     public async Task<List<Dictionary<string, object>>> GetRetentionPolicyTagsAsync() =>
         await SafeListAsync(
-            @"Get-RetentionPolicyTag | Select-Object Name,
-                @{n='Type';e={[string]$_.Type}},
-                @{n='AgeLimitForRetention';e={if($_.AgeLimitForRetention){[string]$_.AgeLimitForRetention}else{'Illimitée'}}},
-                @{n='RetentionAction';e={[string]$_.RetentionAction}},
-                MessageClass, IsDefaultTag",
+            @"Get-RetentionPolicyTag | Select-Object Name, Type, AgeLimitForRetention, RetentionAction, MessageClass, IsDefaultTag",
             "Get-RetentionPolicyTag");
 
     // =========================================================================

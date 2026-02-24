@@ -2,6 +2,11 @@
 # DÉMARRAGE: Exchange Web Admin
 # ============================================
 
+# Forcer UTF-8 pour un affichage correct sur toutes les machines
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
+$OutputEncoding = [System.Text.UTF8Encoding]::new()
+try { chcp 65001 | Out-Null } catch {}
+
 Write-Host "`n═══════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host "  DÉMARRAGE - EXCHANGE WEB ADMIN" -ForegroundColor Cyan
 Write-Host "═══════════════════════════════════════════`n" -ForegroundColor Cyan
@@ -133,7 +138,7 @@ if (Test-Path "$frontendDir\\node_modules") {
 # Étape 5: Accès Web UI
 Write-Host "🌐 Étape 5/5: Accès interface Web..." -ForegroundColor Yellow
 Write-Host "   Ouvrir dans le navigateur:" -ForegroundColor Cyan
-Write-Host "   http://localhost:5173`n" -ForegroundColor White
+Write-Host "   http://localhost:3000`n" -ForegroundColor White
 
 Write-Host "═══════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host "  ✅ TEST RÉUSSI - Prêt pour lancement!" -ForegroundColor Green

@@ -92,7 +92,7 @@ timeout /t 8 /nobreak >nul
 REM Ouvrir navigateur
 echo.
 echo 🌐 Ouverture du navigateur...
-start http://localhost:5173
+start http://localhost:3000
 
 echo.
 echo ═══════════════════════════════════════════
@@ -100,7 +100,7 @@ echo   ✅ DÉMARRAGE TERMINÉ
 echo ═══════════════════════════════════════════
 echo.
 echo Backend API:     http://localhost:5000
-echo Frontend Web:    http://localhost:5173
+echo Frontend Web:    http://localhost:3000
 echo.
 echo 💡 Deux fenêtres PowerShell sont ouvertes:
 echo    • Exchange Web Admin - Backend API
@@ -127,7 +127,7 @@ echo   cd %~dp0frontend
 echo   npm run dev
 echo.
 echo Navigateur:
-echo   http://localhost:5173
+echo   http://localhost:3000
 echo.
 pause
 goto end
