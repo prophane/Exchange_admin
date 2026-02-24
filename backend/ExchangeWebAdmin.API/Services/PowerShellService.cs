@@ -447,10 +447,10 @@ public class PowerShellService : IPowerShellService, IDisposable
         if (value is PSObject nested)
         {
             var str = nested.ToString();
-            // Une valeur simple ne contient pas d'accolades ni de points-virgules
-            // et reste courte (enum/timespan/quota = < 100 chars)
-            // Exception : si str est vide mais que l'objet a des propriétés, on développe
-            if (!str.Contains('{') && !str.Contains(';') && str.Length > 0 && str.Length < 100)
+            // Une valeur simple ne contient pas d'accolades ni de points-virgules.
+            // PAS de limite de longueur — une Description longue est toujours une chaîne.
+            // Seuls les objets Exchange sérialisés ({Key=Val; ...}) contiennent { ou ;
+            if (!str.Contains('{') && !str.Contains(';') && str.Length > 0)
                 return str;
 
             var dict = new Dictionary<string, object>();

@@ -169,9 +169,20 @@ export default function VirtualDirectories() {
         : rec.IISAuthenticationMethods ? [rec.IISAuthenticationMethods] : [];
       methods.forEach((m: any) => tags.push({ label: String(m), color: 'blue' }));
     } else if (rec._dirType === 'eas') {
-      if (rec.BasicAuthEnabled)       tags.push({ label: 'Basic',     color: 'blue'   });
-      if (rec.WindowsAuthEnabled)     tags.push({ label: 'Windows',   color: 'green'  });
-      if (rec.CertificateAuthentication) tags.push({ label: 'Cert',   color: 'purple' });
+      if (rec.BasicAuthEnabled)          tags.push({ label: 'Basic',     color: 'blue'   });
+      if (rec.WindowsAuthEnabled)        tags.push({ label: 'Windows',   color: 'green'  });
+      if (rec.CertificateAuthentication) tags.push({ label: 'Cert',      color: 'purple' });
+      // Fallback : méthodes IIS / externes si les flags booléens sont tous false
+      if (!tags.length) {
+        const extMethods: any[] = Array.isArray(rec.ExternalAuthenticationMethods)
+          ? rec.ExternalAuthenticationMethods
+          : rec.ExternalAuthenticationMethods ? [rec.ExternalAuthenticationMethods] : [];
+        const iisMethods: any[] = Array.isArray(rec.IISAuthenticationMethods)
+          ? rec.IISAuthenticationMethods
+          : rec.IISAuthenticationMethods ? [rec.IISAuthenticationMethods] : [];
+        const combined = [...new Set([...extMethods, ...iisMethods].map(String))];
+        combined.forEach(m => tags.push({ label: m, color: 'blue' }));
+      }
     } else {
       if (rec.BasicAuthentication)    tags.push({ label: 'Basic',     color: 'blue'   });
       if (rec.WindowsAuthentication)  tags.push({ label: 'Windows',   color: 'green'  });
