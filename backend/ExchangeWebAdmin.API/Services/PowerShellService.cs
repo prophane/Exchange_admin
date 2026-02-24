@@ -397,9 +397,16 @@ public class PowerShellService : IPowerShellService, IDisposable
     {
         if (depth > 5) return value?.ToString() ?? "";
 
-        // Unwrap PSObject
+        // Unwrap PSObject — sauf si le BaseObject est un PSCustomObject.
+        // Sur une session PS distante, Select-Object retourne des PSCustomObject dont
+        // PSCustomObject.ToString() = "" mais PSObject.ToString() = la vraie valeur Exchange.
         if (value is PSObject psObj)
-            value = psObj.BaseObject ?? psObj;
+        {
+            var baseObj = psObj.BaseObject;
+            if (baseObj != null && baseObj is not PSCustomObject)
+                value = baseObj;
+            // Sinon : garder le PSObject pour que nested.ToString() retourne la vraie valeur
+        }
 
         // Types primitifs directement sérialisables → retourner tel quel
         if (value is string || value is bool || value is int || value is long ||
@@ -429,7 +436,8 @@ public class PowerShellService : IPowerShellService, IDisposable
             var str = nested.ToString();
             // Une valeur simple ne contient pas d'accolades ni de points-virgules
             // et reste courte (enum/timespan/quota = < 100 chars)
-            if (!str.Contains('{') && !str.Contains(';') && str.Length < 100)
+            // Exception : si str est vide mais que l'objet a des propriétés, on développe
+            if (!str.Contains('{') && !str.Contains(';') && str.Length > 0 && str.Length < 100)
                 return str;
 
             var dict = new Dictionary<string, object>();

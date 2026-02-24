@@ -721,4 +721,25 @@ public class ExchangeController : ControllerBase
             version = "1.0.0"
         });
     }
+
+    /// <summary>
+    /// Debug : dump brut des propriétés FlattenValue pour les bases de données
+    /// </summary>
+    [HttpGet("debug/databases-raw")]
+    public async Task<IActionResult> DebugDatabasesRaw()
+    {
+        var script = @"Get-MailboxDatabase -Status | Select-Object Name, Server, EdbFilePath, LogFolderPath, IssueWarningQuota, ProhibitSendQuota, ProhibitSendReceiveQuota, Mounted, MailboxRetention, DeletedItemRetention, WhenCreated";
+        var result = await _psService.ExecuteScriptAsync(script);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Debug : toutes les propriétés d'une base de données sans Select-Object
+    /// </summary>
+    [HttpGet("debug/databases-full")]
+    public async Task<IActionResult> DebugDatabasesFull()
+    {
+        var result = await _psService.ExecuteScriptAsync("Get-MailboxDatabase -Status -Identity 'DAGDB01'");
+        return Ok(result);
+    }
 }
