@@ -367,6 +367,17 @@ public class PowerShellService : IPowerShellService, IDisposable
             if (!tok.StartsWith("-")) { i++; continue; }
             var paramName = tok.TrimStart('-');
 
+            // Syntaxe colon-boolean : -Confirm:$false ou -WhatIf:$true (un seul token sans espace)
+            if (paramName.Contains(':'))
+            {
+                var colonIdx = paramName.IndexOf(':');
+                var boolPart = paramName[(colonIdx + 1)..];
+                paramName    = paramName[..colonIdx];
+                ps.AddParameter(paramName, ParsePsValue(boolPart));
+                i++;
+                continue;
+            }
+
             // Valeur suivante ?
             if (i + 1 < tokens.Count && !tokens[i + 1].StartsWith("-"))
             {
