@@ -108,7 +108,7 @@ if (Test-Path "$frontendDir\\node_modules") {
         Write-Host "❌ npm n'est pas dans le PATH. Installez Node.js puis relancez." -ForegroundColor Red
         pause; exit 1
     }
-    $npmInstall = Start-Process -FilePath "npm" -ArgumentList "install" `
+    $npmInstall = Start-Process -FilePath "cmd.exe" -ArgumentList "/c npm install" `
         -WorkingDirectory $frontendDir -Wait -PassThru -NoNewWindow
     if ($npmInstall.ExitCode -eq 0) {
         Write-Host "✅ npm install terminé`n" -ForegroundColor Green
