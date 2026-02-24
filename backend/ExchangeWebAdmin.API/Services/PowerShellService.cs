@@ -43,8 +43,6 @@ public class PowerShellService : IPowerShellService, IDisposable
         _settings = settings.Value;
     }
 
-    private bool _isNoLanguage = false;
-
     // ── Gestion infra / credentials ──────────────────────────────────────────
 
     public void SetInfrastructure(ExchangeInfrastructure infra)
@@ -133,22 +131,6 @@ public class PowerShellService : IPowerShellService, IDisposable
             _ps = PowerShell.Create();
             _ps.Runspace = _remoteRunspace;
 
-            // Détecter si le runspace distant est en NoLanguage mode (ex: Exchange SE)
-            // En NoLanguage, AddScript() est interdit — on devra utiliser AddCommand()
-            try
-            {
-                using var testPs = PowerShell.Create();
-                testPs.Runspace = _remoteRunspace;
-                testPs.AddScript("1+1");
-                testPs.Invoke();
-                _isNoLanguage = testPs.HadErrors || testPs.Streams.Error.Count > 0;
-            }
-            catch
-            {
-                _isNoLanguage = true;
-            }
-            _logger.LogInformation("Mode runspace: {Mode}", _isNoLanguage ? "NoLanguage (Exchange SE)" : "FullLanguage");
-
             _logger.LogInformation("Session Exchange ouverte sur {Uri}", connectionUri);
             _isInitialized = true;
         }
@@ -214,12 +196,10 @@ public class PowerShellService : IPowerShellService, IDisposable
             _ps.Streams.Error.Clear();
             _ps.Streams.Warning.Clear();
 
-            // En NoLanguage mode (Exchange SE), AddScript() est interdit.
-            // On convertit le texte en pipeline AddCommand/AddParameter.
-            if (_isNoLanguage)
-                BuildPipelineFromScript(_ps, script);
-            else
-                _ps.AddScript(script);
+            // Toujours utiliser le pipeline builder (AddCommand/AddParameter).
+            // AddScript() est interdit en NoLanguage (Exchange SE) et inutile ici
+            // car toutes nos commandes sont de simples pipelines Exchange.
+            BuildPipelineFromScript(_ps, script);
 
             if (parameters != null)
             {
