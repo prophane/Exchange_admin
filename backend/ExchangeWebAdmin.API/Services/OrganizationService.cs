@@ -288,6 +288,13 @@ public class OrganizationService
             @"Get-RoleAssignmentPolicy | Select-Object Name, Description, IsDefault, WhenChanged",
             "Get-RoleAssignmentPolicy");
 
+    public async Task UpdateRoleAssignmentPolicyAsync(string name, string? description)
+    {
+        var parts = new List<string> { $"-Identity '{name.Replace("'", "''")}'"};
+        if (description != null) parts.Add($"-Description '{description.Replace("'", "''")}'");
+        await _ps.ExecuteScriptAsync($"Set-RoleAssignmentPolicy {string.Join(" ", parts)}");
+    }
+
     // =========================================================================
     // UTILISATEURS — Plans de boîtes aux lettres
     // =========================================================================
@@ -380,6 +387,15 @@ public class OrganizationService
               InstantMessagingEnabled, TextMessagingEnabled, CalendarEnabled, TasksEnabled,
               PremiumClientEnabled, WhenChanged",
             "Get-OwaMailboxPolicy");
+
+    public async Task UpdateOwaMailboxPolicyAsync(string name, bool? instantMessaging, bool? calendar, bool? tasks)
+    {
+        var parts = new List<string> { $"-Identity '{name.Replace("'", "''")}'"};
+        if (instantMessaging.HasValue) parts.Add($"-InstantMessagingEnabled:{(instantMessaging.Value ? "$true" : "$false")}");
+        if (calendar.HasValue)         parts.Add($"-CalendarEnabled:{(calendar.Value ? "$true" : "$false")}");
+        if (tasks.HasValue)            parts.Add($"-TasksEnabled:{(tasks.Value ? "$true" : "$false")}");
+        await _ps.ExecuteScriptAsync($"Set-OwaMailboxPolicy {string.Join(" ", parts)}");
+    }
 
     // =========================================================================
     // CONFORMITÉ — Journal / eDiscovery

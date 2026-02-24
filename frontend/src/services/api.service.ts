@@ -554,6 +554,10 @@ class ExchangeApiService {
     return response.data.data || [];
   }
 
+  async updateRoleAssignmentPolicy(name: string, description: string): Promise<void> {
+    await this.api.put(`/organization/role-assignment-policies/${encodeURIComponent(name)}`, { description });
+  }
+
   async getMailboxPlans(): Promise<any[]> {
     const response = await this.api.get<ApiResponse<any[]>>('/organization/mailbox-plans');
     return response.data.data || [];
@@ -613,6 +617,10 @@ class ExchangeApiService {
   async getOwaMailboxPolicies(): Promise<any[]> {
     const response = await this.api.get<ApiResponse<any[]>>('/organization/owa-policies');
     return response.data.data || [];
+  }
+
+  async updateOwaMailboxPolicy(name: string, fields: { instantMessagingEnabled?: boolean; calendarEnabled?: boolean; tasksEnabled?: boolean }): Promise<void> {
+    await this.api.put(`/organization/owa-policies/${encodeURIComponent(name)}`, fields);
   }
 
   // Conformité

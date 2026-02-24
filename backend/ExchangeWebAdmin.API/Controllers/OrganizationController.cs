@@ -315,6 +315,13 @@ public class OrganizationController : ControllerBase
         }
     }
 
+    [HttpPut("role-assignment-policies/{name}")]
+    public async Task<IActionResult> UpdateRoleAssignmentPolicy(string name, [FromBody] UpdateRoleGroupRequest req)
+    {
+        try { await _org.UpdateRoleAssignmentPolicyAsync(name, req.Description); return Ok(new { success = true }); }
+        catch (Exception ex) { return StatusCode(500, new { success = false, error = ex.Message }); }
+    }
+
     [HttpGet("mailbox-plans")]
     public async Task<IActionResult> GetMailboxPlans()
     {
@@ -434,6 +441,13 @@ public class OrganizationController : ControllerBase
         catch (Exception ex) { return StatusCode(500, new { success = false, error = ex.Message }); }
     }
 
+    [HttpPut("owa-policies/{name}")]
+    public async Task<IActionResult> UpdateOwaMailboxPolicy(string name, [FromBody] UpdateOwaPolicyRequest req)
+    {
+        try { await _org.UpdateOwaMailboxPolicyAsync(name, req.InstantMessagingEnabled, req.CalendarEnabled, req.TasksEnabled); return Ok(new { success = true }); }
+        catch (Exception ex) { return StatusCode(500, new { success = false, error = ex.Message }); }
+    }
+
     // =========================================================================
     // CONFORMITÉ
     // =========================================================================
@@ -549,3 +563,4 @@ public record CreateDagRequest(string Name, string WitnessServer, string Witness
 public record UpdateDagRequest(string? WitnessServer, string? WitnessDirectory);
 public record CreateRoleGroupRequest(string Name, string? Description);
 public record UpdateRoleGroupRequest(string? Description);
+public record UpdateOwaPolicyRequest(bool? InstantMessagingEnabled, bool? CalendarEnabled, bool? TasksEnabled);

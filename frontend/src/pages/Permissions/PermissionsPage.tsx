@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Table, Typography, Tag, message, Tabs, Button, Modal, Form, Input, Space, Popconfirm, Tooltip, Divider } from 'antd';
+import { Table, Typography, Tag, message, Tabs, Button, Modal, Form, Input, Space, Popconfirm, Tooltip, Divider, Switch } from 'antd';
 import { ReloadOutlined, LockOutlined, PlusOutlined, EditOutlined, DeleteOutlined, TeamOutlined, MinusCircleOutlined, UserAddOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { exchangeApi } from '../../services/api.service';
@@ -229,6 +229,10 @@ function RoleGroupsTab() {
 function AssignmentPoliciesTab() {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [editVisible, setEditVisible] = useState(false);
+  const [editTarget, setEditTarget] = useState<any>(null);
+  const [editLoading, setEditLoading] = useState(false);
+  const [editForm] = Form.useForm();
 
   const load = async () => {
     setLoading(true);
@@ -239,24 +243,63 @@ function AssignmentPoliciesTab() {
 
   useEffect(() => { load(); }, []);
 
+  const openEdit = (row: any) => {
+    setEditTarget(row);
+    editForm.setFieldsValue({ description: row.Description ?? '' });
+    setEditVisible(true);
+  };
+
+  const handleEdit = async () => {
+    const values = await editForm.validateFields();
+    setEditLoading(true);
+    try {
+      await exchangeApi.updateRoleAssignmentPolicy(editTarget.Name, values.description ?? '');
+      message.success('Stratégie mise à jour');
+      setEditVisible(false);
+      load();
+    } catch (e: any) { message.error(`Erreur: ${e.message}`); }
+    finally { setEditLoading(false); }
+  };
+
   const columns: ColumnsType<any> = [
     { title: 'Nom', dataIndex: 'Name' },
     { title: 'Par défaut', dataIndex: 'IsDefault', render: v => v ? <Tag color="green">Oui</Tag> : <Tag>Non</Tag> },
     { title: 'Description', dataIndex: 'Description', ellipsis: true },
     { title: 'Modifié le', dataIndex: 'WhenChanged', render: v => v ? dayjs(v).format('DD/MM/YYYY') : '-' },
+    {
+      title: '', width: 60, align: 'center',
+      render: (_, row) => (
+        <Tooltip title="Modifier"><Button size="small" icon={<EditOutlined />} onClick={() => openEdit(row)} /></Tooltip>
+      ),
+    },
   ];
 
   return (
-    <Table rowKey="Name" dataSource={data} columns={columns} loading={loading}
-      size="small" pagination={{ pageSize: 20 }}
-      footer={() => `${data.length} stratégies`}
-      title={() => <Button icon={<ReloadOutlined />} onClick={load} size="small">Actualiser</Button>} />
+    <>
+      <Table rowKey="Name" dataSource={data} columns={columns} loading={loading}
+        size="small" pagination={{ pageSize: 20 }}
+        footer={() => `${data.length} stratégies`}
+        title={() => <Button icon={<ReloadOutlined />} onClick={load} size="small">Actualiser</Button>} />
+      <Modal title={`Modifier "${editTarget?.Name}"`} open={editVisible}
+        onCancel={() => setEditVisible(false)} onOk={handleEdit}
+        okText="Enregistrer" confirmLoading={editLoading}>
+        <Form form={editForm} layout="vertical" style={{ marginTop: 12 }}>
+          <Form.Item name="description" label="Description">
+            <Input.TextArea rows={3} />
+          </Form.Item>
+        </Form>
+      </Modal>
+    </>
   );
 }
 
 function OwaTab() {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [editVisible, setEditVisible] = useState(false);
+  const [editTarget, setEditTarget] = useState<any>(null);
+  const [editLoading, setEditLoading] = useState(false);
+  const [editForm] = Form.useForm();
 
   const load = async () => {
     setLoading(true);
@@ -267,6 +310,32 @@ function OwaTab() {
 
   useEffect(() => { load(); }, []);
 
+  const openEdit = (row: any) => {
+    setEditTarget(row);
+    editForm.setFieldsValue({
+      instantMessagingEnabled: !!row.InstantMessagingEnabled,
+      calendarEnabled: !!row.CalendarEnabled,
+      tasksEnabled: !!row.TasksEnabled,
+    });
+    setEditVisible(true);
+  };
+
+  const handleEdit = async () => {
+    const values = await editForm.validateFields();
+    setEditLoading(true);
+    try {
+      await exchangeApi.updateOwaMailboxPolicy(editTarget.Name, {
+        instantMessagingEnabled: values.instantMessagingEnabled,
+        calendarEnabled: values.calendarEnabled,
+        tasksEnabled: values.tasksEnabled,
+      });
+      message.success('Stratégie OWA mise à jour');
+      setEditVisible(false);
+      load();
+    } catch (e: any) { message.error(`Erreur: ${e.message}`); }
+    finally { setEditLoading(false); }
+  };
+
   const columns: ColumnsType<any> = [
     { title: 'Nom', dataIndex: 'Name' },
     { title: 'Par défaut', dataIndex: 'IsDefault', render: v => v ? <Tag color="green">Oui</Tag> : <Tag>Non</Tag> },
@@ -274,13 +343,36 @@ function OwaTab() {
     { title: 'Calendrier', dataIndex: 'CalendarEnabled', render: v => <Tag color={v ? 'green' : 'default'}>{v ? 'Activé' : 'Désactivé'}</Tag> },
     { title: 'Tâches', dataIndex: 'TasksEnabled', render: v => <Tag color={v ? 'green' : 'default'}>{v ? 'Activé' : 'Désactivé'}</Tag> },
     { title: 'Modifié le', dataIndex: 'WhenChanged', render: v => v ? dayjs(v).format('DD/MM/YYYY') : '-' },
+    {
+      title: '', width: 60, align: 'center',
+      render: (_, row) => (
+        <Tooltip title="Modifier"><Button size="small" icon={<EditOutlined />} onClick={() => openEdit(row)} /></Tooltip>
+      ),
+    },
   ];
 
   return (
-    <Table rowKey="Name" dataSource={data} columns={columns} loading={loading}
-      size="small" pagination={{ pageSize: 20 }}
-      footer={() => `${data.length} stratégies OWA`}
-      title={() => <Button icon={<ReloadOutlined />} onClick={load} size="small">Actualiser</Button>} />
+    <>
+      <Table rowKey="Name" dataSource={data} columns={columns} loading={loading}
+        size="small" pagination={{ pageSize: 20 }}
+        footer={() => `${data.length} stratégies OWA`}
+        title={() => <Button icon={<ReloadOutlined />} onClick={load} size="small">Actualiser</Button>} />
+      <Modal title={`Modifier "${editTarget?.Name}"`} open={editVisible}
+        onCancel={() => setEditVisible(false)} onOk={handleEdit}
+        okText="Enregistrer" confirmLoading={editLoading}>
+        <Form form={editForm} layout="vertical" style={{ marginTop: 12 }}>
+          <Form.Item name="instantMessagingEnabled" label="Messagerie instantanée" valuePropName="checked">
+            <Switch />
+          </Form.Item>
+          <Form.Item name="calendarEnabled" label="Calendrier" valuePropName="checked">
+            <Switch />
+          </Form.Item>
+          <Form.Item name="tasksEnabled" label="Tâches" valuePropName="checked">
+            <Switch />
+          </Form.Item>
+        </Form>
+      </Modal>
+    </>
   );
 }
 

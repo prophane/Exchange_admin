@@ -25,6 +25,7 @@ public class PowerShellService : IPowerShellService, IDisposable
 {
     private readonly ILogger<PowerShellService> _logger;
     private readonly ExchangeSettings _settings;
+    private readonly CmdletLogService _cmdletLog;
     private PowerShell? _ps;
     private Runspace? _remoteRunspace;
     private bool _isInitialized = false;
@@ -37,10 +38,12 @@ public class PowerShellService : IPowerShellService, IDisposable
 
     public PowerShellService(
         ILogger<PowerShellService> logger,
-        IOptions<ExchangeSettings> settings)
+        IOptions<ExchangeSettings> settings,
+        CmdletLogService cmdletLog)
     {
         _logger = logger;
         _settings = settings.Value;
+        _cmdletLog = cmdletLog;
     }
 
     // ── Gestion infra / credentials ──────────────────────────────────────────
@@ -184,6 +187,10 @@ public class PowerShellService : IPowerShellService, IDisposable
 
     public async Task<object> ExecuteScriptAsync(string script, IDictionary<string, object>? parameters = null)
     {
+        var logEntry = _cmdletLog.Begin(script);
+        Exception? logEx = null;
+        try
+        {
         await InitializeAsync();
 
         // UNE SEULE REQUÊTE À LA FOIS pour éviter les conflits
@@ -266,12 +273,18 @@ public class PowerShellService : IPowerShellService, IDisposable
         }
         catch (Exception ex)
         {
+            logEx = ex;
             _logger.LogError(ex, "Erreur exécution script PowerShell");
             throw;
         }
         finally
         {
             _executionLock.Release();
+        }
+        } // end outer try
+        finally
+        {
+            _cmdletLog.Complete(logEntry, logEx);
         }
     }
 
