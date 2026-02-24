@@ -118,6 +118,17 @@ export default function Certificates() {
   // Label affiché dans le titre du modal/wizard lors d'un renouvellement
   const [renewingLabel, setRenewingLabel] = useState('');
 
+  // ── Par-wizard : serveur cible + déploiement multi-serveur ─────────────────
+  const [caServer, setCaServer]               = useState<string>('');
+  const [leServer, setLeServer]               = useState<string>('');
+  const [caFinalServices, setCaFinalServices] = useState<string[]>(['SMTP', 'IIS']);
+  const [leFinalServices, setLeFinalServices] = useState<string[]>(['SMTP', 'IIS']);
+  const [caDeployTargets, setCaDeployTargets] = useState<string[]>([]);
+  const [leDeployTargets, setLeDeployTargets] = useState<string[]>([]);
+  const [deployBusy, setDeployBusy]           = useState(false);
+  const [caDeployResults, setCaDeployResults] = useState<Record<string, 'ok' | 'error'>>({});
+  const [leDeployResults, setLeDeployResults] = useState<Record<string, 'ok' | 'error'>>({});
+
   // ── CA Entreprise wizard state ─────────────────────────────────────────────
   const [caOpen, setCaOpen]   = useState(false);
   const [caStep, setCaStep]   = useState(0);
@@ -163,6 +174,9 @@ export default function Certificates() {
     setLeChallenges([]);
     setLeThumbprint('');
     setRenewingLabel(String(cert.Subject ?? ''));
+    setLeServer(String((cert as any).Server ?? selectedServer ?? (servers[0] as any)?.Name ?? ''));
+    setLeDeployTargets([]);
+    setLeDeployResults({});
     setLeOpen(true);
   };
 
@@ -184,6 +198,9 @@ export default function Certificates() {
     setCaCsr('');
     setCaThumb('');
     setRenewingLabel(String(cert.Subject ?? ''));
+    setCaServer(String((cert as any).Server ?? selectedServer ?? (servers[0] as any)?.Name ?? ''));
+    setCaDeployTargets([]);
+    setCaDeployResults({});
     setCaOpen(true);
   };
 
@@ -223,6 +240,9 @@ export default function Certificates() {
     setCaCsr('');
     setCaThumb('');
     setRenewingLabel('');
+    setCaServer(selectedServer || (servers[0] as any)?.Name || (servers[0] as any)?.Fqdn || '');
+    setCaDeployTargets([]);
+    setCaDeployResults({});
     setCaOpen(true);
   };
 
@@ -234,7 +254,7 @@ export default function Certificates() {
       if (!domains.length) { message.error('Entrez au moins un domaine'); return; }
       setCaBusy(true);
       setCaError(null);
-      const csrServer = selectedServer ?? '';
+      const csrServer = caServer;
       if (!csrServer) { setCaError('Sélectionnez un serveur avant de générer un CSR'); setCaBusy(false); return; }
       const res = await exchangeApi.newCertificateRequest({
         server: csrServer,
@@ -261,14 +281,16 @@ export default function Certificates() {
       b64 = b64.replace(/-----BEGIN[^-]*-----/g, '').replace(/-----END[^-]*-----/g, '').replace(/\s+/g, '');
       setCaBusy(true);
       setCaError(null);
-      const importServer = selectedServer ?? '';
+      const importServer = caServer;
       if (!importServer) { setCaError('Sélectionnez un serveur avant d\'importer'); setCaBusy(false); return; }
+      const importServices = values.importServices ?? ['SMTP', 'IIS'];
       const res = await exchangeApi.importCertificateResponse({
         server: importServer,
         base64Certificate: b64,
-        services: values.importServices ?? ['SMTP', 'IIS'],
+        services: importServices,
         pfxPassword: values.pfxPassword || undefined,
       });
+      setCaFinalServices(importServices);
       setCaThumb(res.thumbprint ?? '');
       setCaStep(2);
       load();
@@ -314,6 +336,9 @@ export default function Certificates() {
     setLeChallenges([]);
     setLeThumbprint('');
     setRenewingLabel('');
+    setLeServer(selectedServer || (servers[0] as any)?.Name || (servers[0] as any)?.Fqdn || '');
+    setLeDeployTargets([]);
+    setLeDeployResults({});
     setLeOpen(true);
   };
 
@@ -354,7 +379,8 @@ export default function Certificates() {
       setLeBusy(true);
       setLeError(null);
       const services: string[] = leForm.getFieldValue('services') ?? ['SMTP', 'IIS'];
-      const res = await exchangeApi.validateLetsEncryptOrder({ orderId: leOrderId, services });
+      const res = await exchangeApi.validateLetsEncryptOrder({ orderId: leOrderId, services, server: leServer || undefined });
+      setLeFinalServices(services);
       setLeThumbprint(res.thumbprint);
       setLeStep(2);
       load(); // refresh table
@@ -382,6 +408,29 @@ export default function Certificates() {
     }
   };
 
+  const handleDeploy = async (which: 'ca' | 'le') => {
+    const thumbprint = which === 'ca' ? caThumb : leThumbprint;
+    const fromServer = which === 'ca' ? caServer : leServer;
+    const targets    = which === 'ca' ? caDeployTargets : leDeployTargets;
+    const services   = (which === 'ca' ? caFinalServices : leFinalServices).length > 0
+      ? (which === 'ca' ? caFinalServices : leFinalServices) : ['SMTP', 'IIS'];
+    if (!thumbprint || !fromServer || !targets.length) return;
+    setDeployBusy(true);
+    const results: Record<string, 'ok' | 'error'> = {};
+    for (const target of targets) {
+      try {
+        await exchangeApi.deployCertificateToServer(thumbprint, fromServer, target, services);
+        results[target] = 'ok';
+      } catch {
+        results[target] = 'error';
+      }
+    }
+    if (which === 'ca') setCaDeployResults(results);
+    else setLeDeployResults(results);
+    setDeployBusy(false);
+    load();
+  };
+
   useEffect(() => {
     exchangeApi.getExchangeServers().then(setServers).catch(() => {});
   }, []);
@@ -402,6 +451,17 @@ export default function Certificates() {
         </Space>
       ),
     },
+    ...(servers.length > 1
+      ? [{
+          title: 'Serveur',
+          dataIndex: 'Server',
+          key: 'Server',
+          width: 130,
+          render: (v: unknown) => (
+            <Tag color="geekblue" style={{ fontSize: 11 }}>{String(v ?? '?')}</Tag>
+          ),
+        }]
+      : []),
     {
       title: 'Emetteur', dataIndex: 'Issuer', key: 'Issuer',
       render: (v) => <span style={{ fontSize: 12, color: '#555' }}>{String(v ?? 'N/A')}</span>,
@@ -562,6 +622,17 @@ export default function Certificates() {
         {/* Step 0 — configuration */}
         {leStep === 0 && (
           <Form form={leForm} layout="vertical">
+            {servers.length > 1 && (
+              <Form.Item label="Serveur Exchange cible" required extra="Le certificat Let's Encrypt sera importé sur ce serveur.">
+                <Select
+                  value={leServer}
+                  onChange={setLeServer}
+                  placeholder="Sélectionner un serveur"
+                  style={{ width: '100%' }}
+                  options={servers.map((s: any) => ({ value: s.Name ?? s.Fqdn, label: s.Name ?? s.Fqdn }))}
+                />
+              </Form.Item>
+            )}
             <Form.Item name="email" label="Adresse e-mail Let's Encrypt"
               rules={[{ required: true, type: 'email', message: 'E-mail valide requis' }]}>
               <Input placeholder="admin@exemple.com" />
@@ -664,20 +735,54 @@ export default function Certificates() {
 
         {/* Step 2 — result */}
         {leStep === 2 && (
-          <div style={{ textAlign: 'center', padding: '16px 0' }}>
-            <CheckCircleOutlined style={{ fontSize: 48, color: '#52c41a' }} />
-            <div style={{ marginTop: 12 }}>
-              <Text strong>{renewingLabel ? "Certificat Let's Encrypt renouvelé avec succès !" : "Certificat Let's Encrypt importé avec succès !"}</Text>
-            </div>
-            {leThumbprint && (
-              <div style={{ marginTop: 8 }}>
-                <Text type="secondary">Empreinte : </Text>
-                <code style={{ fontSize: 11 }}>{leThumbprint}</code>
+          <div>
+            <div style={{ textAlign: 'center', padding: '16px 0' }}>
+              <CheckCircleOutlined style={{ fontSize: 48, color: '#52c41a' }} />
+              <div style={{ marginTop: 12 }}>
+                <Text strong>{renewingLabel ? "Certificat Let's Encrypt renouvelé avec succès !" : "Certificat Let's Encrypt importé avec succès !"}</Text>
               </div>
-            )}
-            <div style={{ marginTop: 20 }}>
-              <Button type="primary" onClick={() => setLeOpen(false)}>Fermer</Button>
+              {leThumbprint && (
+                <div style={{ marginTop: 8 }}>
+                  <Text type="secondary">Empreinte : </Text>
+                  <code style={{ fontSize: 11 }}>{leThumbprint}</code>
+                </div>
+              )}
+              {leServer && <div style={{ marginTop: 4, color: '#888', fontSize: 12 }}>Serveur : <strong>{leServer}</strong></div>}
+              <div style={{ marginTop: 20 }}>
+                <Button type="primary" onClick={() => setLeOpen(false)}>Fermer</Button>
+              </div>
             </div>
+            {servers.length > 1 && leThumbprint && leServer && (() => {
+              const others = servers.filter((s: any) => (s.Name ?? s.Fqdn) !== leServer);
+              return others.length > 0 ? (
+                <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 16, marginTop: 8 }}>
+                  <Text strong style={{ fontSize: 13 }}>Déployer sur d&apos;autres serveurs</Text>
+                  <div style={{ marginTop: 8 }}>
+                    <Checkbox.Group
+                      options={others.map((s: any) => ({ value: s.Name ?? s.Fqdn, label: s.Name ?? s.Fqdn }))}
+                      value={leDeployTargets}
+                      onChange={(v) => setLeDeployTargets(v as string[])}
+                    />
+                  </div>
+                  {Object.keys(leDeployResults).length > 0 && (
+                    <Space wrap style={{ marginTop: 8 }}>
+                      {Object.entries(leDeployResults).map(([srv, res]) => (
+                        <Tag key={srv} color={res === 'ok' ? 'green' : 'red'} icon={res === 'ok' ? <CheckCircleOutlined /> : undefined}>{srv}</Tag>
+                      ))}
+                    </Space>
+                  )}
+                  <div style={{ marginTop: 12, textAlign: 'right' }}>
+                    <Button
+                      loading={deployBusy}
+                      disabled={!leDeployTargets.length}
+                      onClick={() => handleDeploy('le')}
+                    >
+                      <SyncOutlined /> Déployer {leDeployTargets.length ? `vers ${leDeployTargets.join(', ')}` : ''}
+                    </Button>
+                  </div>
+                </div>
+              ) : null;
+            })()}
           </div>
         )}
       </Modal>
@@ -706,7 +811,14 @@ export default function Certificates() {
           <Form form={renewForm} layout="vertical">
             <Alert
               type="info" showIcon style={{ marginBottom: 16, fontSize: 12 }}
-              message="Un nouveau certificat auto-signé sera créé avec les mêmes domaines. L'ancien certificat reste en place."
+              message={
+                <>
+                  Un nouveau certificat auto-signé sera créé avec les mêmes domaines. L&apos;ancien certificat reste en place.
+                  {renewCert?.Server
+                    ? <span style={{ marginLeft: 12 }}>Serveur : <strong>{String(renewCert.Server)}</strong></span>
+                    : null}
+                </>
+              }
             />
             <Form.Item name="services" label="Services à activer sur le nouveau certificat"
               rules={[{ required: true, message: 'Sélectionnez au moins un service' }]}>
@@ -743,6 +855,17 @@ export default function Certificates() {
         {/* Step 0 — générer CSR */}
         {caStep === 0 && (
           <Form form={caForm} layout="vertical">
+            {servers.length > 1 && (
+              <Form.Item label="Serveur Exchange cible" required extra="Le CSR et le certificat seront générés/importés sur ce serveur.">
+                <Select
+                  value={caServer}
+                  onChange={setCaServer}
+                  placeholder="Sélectionner un serveur"
+                  style={{ width: '100%' }}
+                  options={servers.map((s: any) => ({ value: s.Name ?? s.Fqdn, label: s.Name ?? s.Fqdn }))}
+                />
+              </Form.Item>
+            )}
             <Form.Item name="subjectName" label="Nom du sujet (SubjectName)"
               rules={[{ required: true, message: 'Requis' }]}
               extra="Ex : cn=webmail.domaine.local">
@@ -826,20 +949,54 @@ export default function Certificates() {
 
         {/* Step 2 — succès */}
         {caStep === 2 && (
-          <div style={{ textAlign: 'center', padding: '16px 0' }}>
-            <CheckCircleOutlined style={{ fontSize: 48, color: '#52c41a' }} />
-            <div style={{ marginTop: 12 }}>
-              <strong>{renewingLabel ? 'Certificat CA renouvelé et activé avec succès !' : 'Certificat CA importé et activé avec succès !'}</strong>
-            </div>
-            {caThumb && (
-              <div style={{ marginTop: 8 }}>
-                <span style={{ color: '#888' }}>Empreinte : </span>
-                <code style={{ fontSize: 11 }}>{caThumb}</code>
+          <div>
+            <div style={{ textAlign: 'center', padding: '16px 0' }}>
+              <CheckCircleOutlined style={{ fontSize: 48, color: '#52c41a' }} />
+              <div style={{ marginTop: 12 }}>
+                <strong>{renewingLabel ? 'Certificat CA renouvelé et activé avec succès !' : 'Certificat CA importé et activé avec succès !'}</strong>
               </div>
-            )}
-            <div style={{ marginTop: 20 }}>
-              <Button type="primary" onClick={() => setCaOpen(false)}>Fermer</Button>
+              {caThumb && (
+                <div style={{ marginTop: 8 }}>
+                  <span style={{ color: '#888' }}>Empreinte : </span>
+                  <code style={{ fontSize: 11 }}>{caThumb}</code>
+                </div>
+              )}
+              {caServer && <div style={{ marginTop: 4, color: '#888', fontSize: 12 }}>Serveur : <strong>{caServer}</strong></div>}
+              <div style={{ marginTop: 20 }}>
+                <Button type="primary" onClick={() => setCaOpen(false)}>Fermer</Button>
+              </div>
             </div>
+            {servers.length > 1 && caThumb && caServer && (() => {
+              const others = servers.filter((s: any) => (s.Name ?? s.Fqdn) !== caServer);
+              return others.length > 0 ? (
+                <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 16, marginTop: 8 }}>
+                  <Text strong style={{ fontSize: 13 }}>Déployer sur d&apos;autres serveurs</Text>
+                  <div style={{ marginTop: 8 }}>
+                    <Checkbox.Group
+                      options={others.map((s: any) => ({ value: s.Name ?? s.Fqdn, label: s.Name ?? s.Fqdn }))}
+                      value={caDeployTargets}
+                      onChange={(v) => setCaDeployTargets(v as string[])}
+                    />
+                  </div>
+                  {Object.keys(caDeployResults).length > 0 && (
+                    <Space wrap style={{ marginTop: 8 }}>
+                      {Object.entries(caDeployResults).map(([srv, res]) => (
+                        <Tag key={srv} color={res === 'ok' ? 'green' : 'red'} icon={res === 'ok' ? <CheckCircleOutlined /> : undefined}>{srv}</Tag>
+                      ))}
+                    </Space>
+                  )}
+                  <div style={{ marginTop: 12, textAlign: 'right' }}>
+                    <Button
+                      loading={deployBusy}
+                      disabled={!caDeployTargets.length}
+                      onClick={() => handleDeploy('ca')}
+                    >
+                      <SyncOutlined /> Déployer {caDeployTargets.length ? `vers ${caDeployTargets.join(', ')}` : ''}
+                    </Button>
+                  </div>
+                </div>
+              ) : null;
+            })()}
           </div>
         )}
       </Modal>

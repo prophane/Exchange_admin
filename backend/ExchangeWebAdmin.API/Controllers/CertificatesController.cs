@@ -21,6 +21,15 @@ namespace ExchangeWebAdmin.API.Controllers
     {
         public string OrderId { get; set; } = string.Empty;
         public string[]? Services { get; set; }
+        /// <summary>Serveur Exchange cible pour l'import (null = serveur par défaut de la session)</summary>
+        public string? Server { get; set; }
+    }
+
+    public class DeployCertificateRequest
+    {
+        public string FromServer { get; set; } = string.Empty;
+        public string ToServer { get; set; } = string.Empty;
+        public string[] Services { get; set; } = ["SMTP", "IIS"];
     }
 
     public class EnableCertServicesRequest
@@ -237,6 +246,31 @@ namespace ExchangeWebAdmin.API.Controllers
             }
         }
 
+        /// <summary>
+        /// Déploie (copie) un certificat existant d'un serveur Exchange vers un autre.
+        /// </summary>
+        [HttpPost("{thumbprint}/deploy")]
+        public async Task<IActionResult> DeployCertificate(string thumbprint, [FromBody] DeployCertificateRequest req)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(thumbprint))
+                    return BadRequest(new { success = false, error = "Thumbprint requis" });
+                if (string.IsNullOrWhiteSpace(req.FromServer))
+                    return BadRequest(new { success = false, error = "FromServer requis" });
+                if (string.IsNullOrWhiteSpace(req.ToServer))
+                    return BadRequest(new { success = false, error = "ToServer requis" });
+
+                var newThumb = await _configService.DeployCertificateToServerAsync(thumbprint, req.FromServer, req.ToServer, req.Services);
+                return Ok(new { success = true, thumbprint = newThumb });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erreur déploiement certificat {Thumbprint} vers {To}", thumbprint, req.ToServer);
+                return StatusCode(500, new { success = false, error = ex.Message });
+            }
+        }
+
         // ── Let's Encrypt ─────────────────────────────────────────────────────
 
         /// <summary>
@@ -294,7 +328,7 @@ namespace ExchangeWebAdmin.API.Controllers
                     return BadRequest(new { success = false, error = "orderId requis" });
 
                 var services = req.Services?.Length > 0 ? req.Services : ["SMTP", "IIS"];
-                var thumbprint = await _letsEncryptService.ValidateAndImportAsync(req.OrderId, services);
+                var thumbprint = await _letsEncryptService.ValidateAndImportAsync(req.OrderId, services, req.Server);
 
                 return Ok(new { success = true, thumbprint });
             }

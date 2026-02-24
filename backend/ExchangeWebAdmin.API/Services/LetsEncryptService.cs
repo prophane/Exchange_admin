@@ -165,7 +165,7 @@ public class LetsEncryptService
     }
 
     // ── Step 2 : Validate challenges and import certificate into Exchange ─────
-    public async Task<string> ValidateAndImportAsync(string orderId, string[] exchangeServices)
+    public async Task<string> ValidateAndImportAsync(string orderId, string[] exchangeServices, string? exchangeServer = null)
     {
         if (!_orders.TryGetValue(orderId, out var state))
             throw new KeyNotFoundException($"Ordre {orderId} introuvable ou expiré.");
@@ -310,6 +310,8 @@ public class LetsEncryptService
             ["Password"]             = securePfxPwd,
             ["PrivateKeyExportable"] = true,
         };
+        if (!string.IsNullOrEmpty(exchangeServer))
+            importParams["Server"] = exchangeServer;
 
         string thumbprint = "OK";
         try
@@ -353,8 +355,11 @@ public class LetsEncryptService
         if (!string.IsNullOrWhiteSpace(thumbprint) && thumbprint != "OK")
         {
             var escapedThumb = thumbprint.Replace("'", "''");
+            var serverArg = !string.IsNullOrEmpty(exchangeServer)
+                ? $" -Server '{exchangeServer.Replace("'", "''")}'"
+                : "";
             await _psService.ExecuteScriptAsync(
-                $"Enable-ExchangeCertificate -Thumbprint '{escapedThumb}' -Services {servicesParam} -Force -Confirm:$false");
+                $"Enable-ExchangeCertificate -Thumbprint '{escapedThumb}' -Services {servicesParam}{serverArg} -Force -Confirm:$false");
         }
 
         // Cleanup DNS records

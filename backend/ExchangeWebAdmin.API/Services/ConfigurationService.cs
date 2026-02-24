@@ -249,6 +249,75 @@ namespace ExchangeWebAdmin.API.Services
             return thumb;
         }
 
+        /// <summary>
+        /// Déploie un certificat d'un serveur Exchange vers un autre :
+        /// Export-ExchangeCertificate (source) → Import-ExchangeCertificate (cible) → Enable.
+        /// </summary>
+        public async Task<string> DeployCertificateToServerAsync(string thumbprint, string fromServer, string toServer, string[] services)
+        {
+            var safeFrom = fromServer.Replace("'", "''");
+            var safeTo   = toServer.Replace("'", "''");
+            var svcParam = services.Length > 0 ? string.Join(",", services) : "SMTP,IIS";
+
+            _logger.LogInformation("Déploiement certificat {T} de {From} vers {To}", thumbprint, fromServer, toServer);
+
+            // Mot de passe temporaire pour le PFX
+            var pfxPwd = Guid.NewGuid().ToString("N")[..12];
+
+            // SecureString pour l'export
+            var exportPwd = new System.Security.SecureString();
+            foreach (var c in pfxPwd) exportPwd.AppendChar(c);
+            exportPwd.MakeReadOnly();
+
+            // Export depuis le serveur source
+            var exportResult = await _psService.ExecuteScriptAsync("Export-ExchangeCertificate", new Dictionary<string, object>
+            {
+                ["Thumbprint"]    = thumbprint,
+                ["Server"]        = fromServer,
+                ["BinaryEncoded"] = true,
+                ["Password"]      = exportPwd,
+            });
+
+            byte[] pfxBytes;
+            if (exportResult is List<Dictionary<string, object>> rows && rows.Count > 0)
+            {
+                var val = rows[0].Values.FirstOrDefault();
+                pfxBytes = val is byte[] b ? b : Convert.FromBase64String(val?.ToString() ?? "");
+            }
+            else if (exportResult is byte[] raw)
+                pfxBytes = raw;
+            else
+                throw new Exception($"Export-ExchangeCertificate n'a retourné aucun résultat depuis {fromServer}");
+
+            // SecureString pour l'import
+            var importPwd = new System.Security.SecureString();
+            foreach (var c in pfxPwd) importPwd.AppendChar(c);
+            importPwd.MakeReadOnly();
+
+            // Import sur le serveur cible
+            var importResult = await _psService.ExecuteScriptAsync("Import-ExchangeCertificate", new Dictionary<string, object>
+            {
+                ["FileData"]             = pfxBytes,
+                ["Server"]               = toServer,
+                ["Password"]             = importPwd,
+                ["PrivateKeyExportable"] = true,
+            });
+
+            var newThumb = thumbprint;
+            if (importResult is List<Dictionary<string, object>> rows2 && rows2.Count > 0)
+            {
+                var row = rows2[0];
+                if (row.TryGetValue("Thumbprint", out var tp) && tp != null) newThumb = tp.ToString()!;
+            }
+
+            // Enable sur le serveur cible
+            var safeThumb = newThumb.Replace("'", "''");
+            await _psService.ExecuteScriptAsync(
+                $"Enable-ExchangeCertificate -Thumbprint '{safeThumb}' -Server '{safeTo}' -Services {svcParam} -Force -Confirm:$false");
+
+            return newThumb;
+        }
+
         // ============================================================================
         // Répertoires Virtuels - ALL (session directe par serveur, isolation par cmdlet)
         // ============================================================================
