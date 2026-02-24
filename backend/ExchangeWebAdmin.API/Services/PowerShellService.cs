@@ -312,7 +312,7 @@ public class PowerShellService : IPowerShellService, IDisposable
             if (tokens.Count == 0) continue;
 
             if (first) { ps.AddCommand(tokens[0]); first = false; }
-            else        { ps.AddCommand(tokens[0], false); }
+            else        { ps.AddCommand(tokens[0]); }
 
             ParseAndAddParameters(ps, tokens.Skip(1).ToList());
         }
