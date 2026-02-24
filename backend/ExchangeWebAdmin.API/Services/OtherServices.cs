@@ -30,103 +30,115 @@ public class DistributionGroupService : IDistributionGroupService
     public async Task<IEnumerable<DistributionGroupDto>> GetDistributionGroupsAsync(int resultSize = 1000)
     {
         _logger.LogInformation("Récupération de {ResultSize} groupes de distribution", resultSize);
-
-        var script = $@"
-            Get-DistributionGroup -ResultSize {resultSize} | Select-Object Name, DisplayName, 
-                PrimarySmtpAddress, Alias, ManagedBy, MemberJoinRestriction, 
-                MemberDepartRestriction, WhenCreated | ConvertTo-Json -Depth 3
-        ";
-
+        var script = $"Get-DistributionGroup -ResultSize {resultSize} | Select-Object Name, DisplayName, PrimarySmtpAddress, Alias, ManagedBy, MemberJoinRestriction, MemberDepartRestriction, WhenCreated";
         var result = await _psService.ExecuteScriptAsync(script);
-        return ParseJsonResult<List<DistributionGroupDto>>(result) ?? new List<DistributionGroupDto>();
+        return MapToGroupDtos(result);
     }
 
     public async Task<DistributionGroupDto?> GetDistributionGroupAsync(string identity)
     {
-        var script = $@"
-            Get-DistributionGroup -Identity '{identity}' | Select-Object Name, DisplayName,
-                PrimarySmtpAddress, Alias, ManagedBy, WhenCreated | ConvertTo-Json -Depth 3
-        ";
-
+        var safeId = identity.Replace("'", "''");
+        var script = $"Get-DistributionGroup -Identity '{safeId}' | Select-Object Name, DisplayName, PrimarySmtpAddress, Alias, ManagedBy, MemberJoinRestriction, MemberDepartRestriction, WhenCreated";
         var result = await _psService.ExecuteScriptAsync(script);
-        return ParseJsonResult<DistributionGroupDto>(result);
+        return MapToGroupDtos(result).FirstOrDefault();
     }
 
     public async Task<IEnumerable<GroupMemberDto>> GetGroupMembersAsync(string identity)
     {
-        var script = $@"
-            @(Get-DistributionGroupMember -Identity '{identity}' -ResultSize 5000 | 
-                Select-Object Name, DisplayName, PrimarySmtpAddress, @{{N='RecipientType'; E={{$_.RecipientType.ToString()}}}}) | 
-                ConvertTo-Json -Depth 3
-        ";
-
+        var safeId = identity.Replace("'", "''");
+        // Pas de calculated property (@{N=...;E={...}}) ni ConvertTo-Json → interdit en NoLanguage
+        // RecipientType est un enum .NET : FlattenValue retourne déjà son .ToString()
+        var script = $"Get-DistributionGroupMember -Identity '{safeId}' -ResultSize 5000 | Select-Object Name, DisplayName, PrimarySmtpAddress, RecipientType";
         var result = await _psService.ExecuteScriptAsync(script);
-        return ParseJsonResult<List<GroupMemberDto>>(result) ?? new List<GroupMemberDto>();
+        return MapToGroupMemberDtos(result);
     }
 
     public async Task<DistributionGroupDto> CreateDistributionGroupAsync(CreateDistributionGroupRequest request)
     {
         _logger.LogInformation("Création du groupe {Name}", request.Name);
-
-        var managedByParam = request.ManagedBy != null && request.ManagedBy.Length > 0
-            ? $"$params.ManagedBy = @('{string.Join("','", request.ManagedBy)}')"
-            : "";
-
-        var ouParam = !string.IsNullOrEmpty(request.OrganizationalUnit)
-            ? $"$params.OrganizationalUnit = '{request.OrganizationalUnit}'"
-            : "";
-
-        var script = $@"
-            $params = @{{
-                Name = '{request.Name}'
-                Alias = '{request.Alias}'
-            }}
-            {managedByParam}
-            {ouParam}
-            
-            New-DistributionGroup @params | Select-Object Name, DisplayName, PrimarySmtpAddress | 
-                ConvertTo-Json -Depth 3
-        ";
-
-        var result = await _psService.ExecuteScriptAsync(script);
-        return ParseJsonResult<DistributionGroupDto>(result) 
+        // Pas de splatting ($params = @{...}) ni ConvertTo-Json → interdit en NoLanguage
+        var safeN = request.Name.Replace("'", "''");
+        var safeA = request.Alias.Replace("'", "''");
+        var script = $"New-DistributionGroup -Name '{safeN}' -Alias '{safeA}'";
+        var extraParams = new Dictionary<string, object>();
+        if (!string.IsNullOrEmpty(request.DisplayName))        extraParams["DisplayName"]        = request.DisplayName;
+        if (!string.IsNullOrEmpty(request.PrimarySmtpAddress)) extraParams["PrimarySmtpAddress"] = request.PrimarySmtpAddress;
+        if (!string.IsNullOrEmpty(request.OrganizationalUnit)) extraParams["OrganizationalUnit"] = request.OrganizationalUnit;
+        if (!string.IsNullOrEmpty(request.Notes))              extraParams["Notes"]              = request.Notes;
+        if (request.ManagedBy?.Length > 0)                     extraParams["ManagedBy"]          = request.ManagedBy;
+        var result = await _psService.ExecuteScriptAsync(script, extraParams.Count > 0 ? extraParams : null);
+        return MapToGroupDtos(result).FirstOrDefault()
             ?? throw new InvalidOperationException("Échec de création du groupe");
     }
 
     public async Task AddMemberAsync(string groupIdentity, string memberIdentity)
     {
         _logger.LogInformation("Ajout de {Member} au groupe {Group}", memberIdentity, groupIdentity);
-
-        var script = $@"
-            Add-DistributionGroupMember -Identity '{groupIdentity}' -Member '{memberIdentity}' -Confirm:$false
-        ";
-
-        await _psService.ExecuteScriptAsync(script);
+        var safeG = groupIdentity.Replace("'", "''");
+        var safeM = memberIdentity.Replace("'", "''");
+        await _psService.ExecuteScriptAsync($"Add-DistributionGroupMember -Identity '{safeG}' -Member '{safeM}' -Confirm:$false");
     }
 
     public async Task RemoveMemberAsync(string groupIdentity, string memberIdentity)
     {
         _logger.LogInformation("Suppression de {Member} du groupe {Group}", memberIdentity, groupIdentity);
-
-        var script = $@"
-            Remove-DistributionGroupMember -Identity '{groupIdentity}' -Member '{memberIdentity}' -Confirm:$false
-        ";
-
-        await _psService.ExecuteScriptAsync(script);
+        var safeG = groupIdentity.Replace("'", "''");
+        var safeM = memberIdentity.Replace("'", "''");
+        await _psService.ExecuteScriptAsync($"Remove-DistributionGroupMember -Identity '{safeG}' -Member '{safeM}' -Confirm:$false");
     }
 
-    private T? ParseJsonResult<T>(object result) where T : class
+    private static IEnumerable<DistributionGroupDto> MapToGroupDtos(object result)
     {
-        if (result is List<object> list && list.Count > 0)
+        if (result is not List<Dictionary<string, object>> rows) return [];
+        return rows.Select(d => new DistributionGroupDto
         {
-            var jsonString = list[0].ToString();
-            if (string.IsNullOrEmpty(jsonString))
-                return null;
-
-            return System.Text.Json.JsonSerializer.Deserialize<T>(jsonString);
-        }
-        return null;
+            Name                    = SafeStr(d.GetValueOrDefault("Name")),
+            DisplayName             = SafeStr(d.GetValueOrDefault("DisplayName")),
+            PrimarySmtpAddress      = SafeStr(d.GetValueOrDefault("PrimarySmtpAddress")),
+            Alias                   = SafeStr(d.GetValueOrDefault("Alias")),
+            ManagedBy               = SafeList(d.GetValueOrDefault("ManagedBy")),
+            MemberJoinRestriction   = SafeStr(d.GetValueOrDefault("MemberJoinRestriction")),
+            MemberDepartRestriction = SafeStr(d.GetValueOrDefault("MemberDepartRestriction")),
+            WhenCreated             = SafeDate(d.GetValueOrDefault("WhenCreated")),
+        });
     }
+
+    private static IEnumerable<GroupMemberDto> MapToGroupMemberDtos(object result)
+    {
+        if (result is not List<Dictionary<string, object>> rows) return [];
+        return rows.Select(d => new GroupMemberDto
+        {
+            Name               = SafeStr(d.GetValueOrDefault("Name")),
+            DisplayName        = SafeStr(d.GetValueOrDefault("DisplayName")),
+            PrimarySmtpAddress = SafeStr(d.GetValueOrDefault("PrimarySmtpAddress")),
+            RecipientType      = SafeStr(d.GetValueOrDefault("RecipientType")),
+        });
+    }
+
+    private static string? SafeStr(object? v) => v switch
+    {
+        null                                                     => null,
+        string s                                                 => string.IsNullOrEmpty(s) ? null : s,
+        Dictionary<string, object> d when d.ContainsKey("Name")  => d["Name"]?.ToString(),
+        Dictionary<string, object> d when d.ContainsKey("Value") => d["Value"]?.ToString(),
+        _                                                        => v.ToString()
+    };
+
+    private static string[]? SafeList(object? v) => v switch
+    {
+        null           => null,
+        List<object> l => l.Select(x => x?.ToString() ?? "").Where(x => x.Length > 0).ToArray(),
+        string s       => string.IsNullOrEmpty(s) ? null : [s],
+        _              => null
+    };
+
+    private static DateTime? SafeDate(object? v) => v switch
+    {
+        null                                            => null,
+        DateTime dt                                     => dt,
+        string s when DateTime.TryParse(s, out var dt)  => dt,
+        _                                               => null
+    };
 }
 
 // ============================================================================
@@ -258,52 +270,73 @@ public class QueueService : IQueueService
     public async Task<IEnumerable<QueueDto>> GetQueuesAsync(string? server = null)
     {
         _logger.LogInformation("Récupération des files d'attente");
-
-        var serverParam = !string.IsNullOrEmpty(server) ? $"-Server '{server}'" : "";
-
-        var script = $@"
-            Get-Queue {serverParam} | Select-Object Identity, DeliveryType, Status, MessageCount,
-                NextHopDomain, LastError | ConvertTo-Json -Depth 3
-        ";
-
+        var script = string.IsNullOrEmpty(server)
+            ? "Get-Queue | Select-Object Identity, DeliveryType, Status, MessageCount, NextHopDomain, LastError"
+            : $"Get-Queue -Server '{server.Replace("'", "''")}' | Select-Object Identity, DeliveryType, Status, MessageCount, NextHopDomain, LastError";
         var result = await _psService.ExecuteScriptAsync(script);
-        return ParseJsonResult<List<QueueDto>>(result) ?? new List<QueueDto>();
+        return MapToQueueDtos(result);
     }
 
     public async Task<IEnumerable<QueueMessageDto>> GetQueueMessagesAsync(string queueIdentity)
     {
-        var script = $@"
-            Get-Message -Queue '{queueIdentity}' -ResultSize 1000 | Select-Object Identity, Subject,
-                FromAddress, Status, Size, MessageSourceName, DateReceived | ConvertTo-Json -Depth 3
-        ";
-
+        var safeQ = queueIdentity.Replace("'", "''");
+        var script = $"Get-Message -Queue '{safeQ}' -ResultSize 1000 | Select-Object Identity, Subject, FromAddress, Status, Size, MessageSourceName, DateReceived";
         var result = await _psService.ExecuteScriptAsync(script);
-        return ParseJsonResult<List<QueueMessageDto>>(result) ?? new List<QueueMessageDto>();
+        return MapToQueueMessageDtos(result);
     }
 
     public async Task RetryQueueAsync(string queueIdentity)
     {
         _logger.LogInformation("Relance de la file {Queue}", queueIdentity);
-
-        var script = $@"
-            Retry-Queue -Identity '{queueIdentity}' -Confirm:$false
-        ";
-
-        await _psService.ExecuteScriptAsync(script);
+        var safeQ = queueIdentity.Replace("'", "''");
+        await _psService.ExecuteScriptAsync($"Retry-Queue -Identity '{safeQ}' -Confirm:$false");
     }
 
-    private T? ParseJsonResult<T>(object result) where T : class
+    private static IEnumerable<QueueDto> MapToQueueDtos(object result)
     {
-        if (result is List<object> list && list.Count > 0)
+        if (result is not List<Dictionary<string, object>> rows) return [];
+        return rows.Select(d => new QueueDto
         {
-            var jsonString = list[0].ToString();
-            if (string.IsNullOrEmpty(jsonString))
-                return null;
-
-            return System.Text.Json.JsonSerializer.Deserialize<T>(jsonString);
-        }
-        return null;
+            Identity      = SafeStr(d.GetValueOrDefault("Identity")),
+            DeliveryType  = SafeStr(d.GetValueOrDefault("DeliveryType")),
+            Status        = SafeStr(d.GetValueOrDefault("Status")),
+            MessageCount  = d.GetValueOrDefault("MessageCount") is int mc ? mc : 0,
+            NextHopDomain = SafeStr(d.GetValueOrDefault("NextHopDomain")),
+            LastError     = SafeStr(d.GetValueOrDefault("LastError")),
+        });
     }
+
+    private static IEnumerable<QueueMessageDto> MapToQueueMessageDtos(object result)
+    {
+        if (result is not List<Dictionary<string, object>> rows) return [];
+        return rows.Select(d => new QueueMessageDto
+        {
+            Identity          = SafeStr(d.GetValueOrDefault("Identity")),
+            Subject           = SafeStr(d.GetValueOrDefault("Subject")),
+            FromAddress       = SafeStr(d.GetValueOrDefault("FromAddress")),
+            Status            = SafeStr(d.GetValueOrDefault("Status")),
+            Size              = d.GetValueOrDefault("Size") is long sz ? sz : 0,
+            MessageSourceName = SafeStr(d.GetValueOrDefault("MessageSourceName")),
+            DateReceived      = SafeDate(d.GetValueOrDefault("DateReceived")),
+        });
+    }
+
+    private static string? SafeStr(object? v) => v switch
+    {
+        null                                                     => null,
+        string s                                                 => string.IsNullOrEmpty(s) ? null : s,
+        Dictionary<string, object> d when d.ContainsKey("Name")  => d["Name"]?.ToString(),
+        Dictionary<string, object> d when d.ContainsKey("Value") => d["Value"]?.ToString(),
+        _                                                        => v.ToString()
+    };
+
+    private static DateTime? SafeDate(object? v) => v switch
+    {
+        null                                           => null,
+        DateTime dt                                    => dt,
+        string s when DateTime.TryParse(s, out var dt) => dt,
+        _                                              => null
+    };
 }
 
 // ============================================================================
@@ -330,54 +363,68 @@ public class PermissionService : IPermissionService
 
     public async Task<IEnumerable<MailboxPermissionDto>> GetMailboxPermissionsAsync(string identity)
     {
-        var script = $@"
-            Get-MailboxPermission -Identity '{identity}' | 
-                Where-Object {{ $_.IsInherited -eq $false -and $_.User -notlike 'NT AUTHORITY\*' }} |
-                Select-Object Identity, User, AccessRights, Deny | ConvertTo-Json -Depth 3
-        ";
-
+        var safeId = identity.Replace("'", "''");
+        // Where-Object avec scriptblock interdit en NoLanguage → filtrage en C#
+        var script = $"Get-MailboxPermission -Identity '{safeId}' | Select-Object Identity, User, AccessRights, IsInherited, Deny";
         var result = await _psService.ExecuteScriptAsync(script);
-        return ParseJsonResult<List<MailboxPermissionDto>>(result) ?? new List<MailboxPermissionDto>();
+        return MapToPermissionDtos(result);
     }
 
     public async Task AddMailboxPermissionAsync(string identity, AddPermissionRequest request)
     {
         _logger.LogInformation("Ajout de permission sur {Identity} pour {User}", identity, request.User);
-
-        var rights = string.Join(",", request.AccessRights);
-
-        var script = $@"
-            Add-MailboxPermission -Identity '{identity}' -User '{request.User}' -AccessRights {rights} -Confirm:$false
-        ";
-
-        await _psService.ExecuteScriptAsync(script);
+        var safeId   = identity.Replace("'", "''");
+        var safeUser = request.User.Replace("'", "''");
+        var rights   = string.Join(",", request.AccessRights);
+        await _psService.ExecuteScriptAsync($"Add-MailboxPermission -Identity '{safeId}' -User '{safeUser}' -AccessRights {rights} -Confirm:$false");
     }
 
     public async Task RemoveMailboxPermissionAsync(string identity, string user, string[] accessRights)
     {
         _logger.LogInformation("Suppression de permission sur {Identity} pour {User}", identity, user);
-
-        var rights = string.Join(",", accessRights);
-
-        var script = $@"
-            Remove-MailboxPermission -Identity '{identity}' -User '{user}' -AccessRights {rights} -Confirm:$false
-        ";
-
-        await _psService.ExecuteScriptAsync(script);
+        var safeId   = identity.Replace("'", "''");
+        var safeUser = user.Replace("'", "''");
+        var rights   = string.Join(",", accessRights);
+        await _psService.ExecuteScriptAsync($"Remove-MailboxPermission -Identity '{safeId}' -User '{safeUser}' -AccessRights {rights} -Confirm:$false");
     }
 
-    private T? ParseJsonResult<T>(object result) where T : class
+    private static IEnumerable<MailboxPermissionDto> MapToPermissionDtos(object result)
     {
-        if (result is List<object> list && list.Count > 0)
-        {
-            var jsonString = list[0].ToString();
-            if (string.IsNullOrEmpty(jsonString))
-                return null;
-
-            return System.Text.Json.JsonSerializer.Deserialize<T>(jsonString);
-        }
-        return null;
+        if (result is not List<Dictionary<string, object>> rows) return [];
+        return rows
+            .Where(d =>
+            {
+                // Filtrer en C# : exclure droits hérités et comptes NT AUTHORITY
+                if (d.GetValueOrDefault("IsInherited") is bool b && b) return false;
+                if (d.GetValueOrDefault("IsInherited")?.ToString()?.Equals("True", StringComparison.OrdinalIgnoreCase) == true) return false;
+                var u = d.GetValueOrDefault("User")?.ToString() ?? "";
+                return !u.StartsWith("NT AUTHORITY\\", StringComparison.OrdinalIgnoreCase);
+            })
+            .Select(d => new MailboxPermissionDto
+            {
+                Identity     = SafeStr(d.GetValueOrDefault("Identity")),
+                User         = SafeStr(d.GetValueOrDefault("User")),
+                AccessRights = SafeList(d.GetValueOrDefault("AccessRights")),
+                Deny         = d.GetValueOrDefault("Deny") is bool deny && deny,
+            });
     }
+
+    private static string? SafeStr(object? v) => v switch
+    {
+        null                                                     => null,
+        string s                                                 => string.IsNullOrEmpty(s) ? null : s,
+        Dictionary<string, object> d when d.ContainsKey("Name")  => d["Name"]?.ToString(),
+        Dictionary<string, object> d when d.ContainsKey("Value") => d["Value"]?.ToString(),
+        _                                                        => v.ToString()
+    };
+
+    private static string[]? SafeList(object? v) => v switch
+    {
+        null           => null,
+        List<object> l => l.Select(x => x?.ToString() ?? "").Where(x => x.Length > 0).ToArray(),
+        string s       => string.IsNullOrEmpty(s) ? null : [s],
+        _              => null
+    };
 }
 
 // ============================================================================

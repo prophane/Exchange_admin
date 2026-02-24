@@ -299,8 +299,14 @@ public class LetsEncryptService
 
         // Return full cert object — extracting Thumbprint from the PSObject dict by key is more reliable
         // than | Select-Object -ExpandProperty Thumbprint which can fail silently in restricted mode.
-        var importScript = "param($pfxData, $pfxPass) Import-ExchangeCertificate -FileData $pfxData -Password $pfxPass -PrivateKeyExportable:$true";
-        var importParams = new Dictionary<string, object> { ["pfxData"] = pfxBytes, ["pfxPass"] = securePfxPwd };
+        // NoLanguage: pas de param() ni de variables PS → passer FileData/Password directement via AddParameter
+        var importScript = "Import-ExchangeCertificate";
+        var importParams = new Dictionary<string, object>
+        {
+            ["FileData"]             = pfxBytes,
+            ["Password"]             = securePfxPwd,
+            ["PrivateKeyExportable"] = true,
+        };
 
         string thumbprint = "OK";
         try
