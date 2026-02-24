@@ -3,6 +3,7 @@ import { Table, Typography, Tag, message, Tabs, Button, Modal, Form, Input, Spac
 import { ReloadOutlined, LockOutlined, PlusOutlined, EditOutlined, DeleteOutlined, TeamOutlined, MinusCircleOutlined, UserAddOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { exchangeApi } from '../../services/api.service';
+import { useAuth } from '../../context/useAuth';
 import dayjs from 'dayjs';
 
 const { Title } = Typography;
@@ -309,7 +310,14 @@ function SettingRow({ name, label, description }: { name: string; label: string;
   );
 }
 
+// Mapping entier Exchange → nom string pour ActionForUnknownFileAndMIMETypes
+const MIME_INT_TO_STR: Record<string, string> = { '0': 'Allow', '1': 'ForceSave', '2': 'Block' };
+
 function OwaTab() {
+  const { user } = useAuth();
+  // 14 = Exchange 2010 ; 15 = Exchange 2013/2016/2019/SE
+  const exVer = (user?.infrastructureVersion ?? '').includes('2010') ? 14 : 15;
+
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -371,9 +379,10 @@ function OwaTab() {
       wacViewingOnPrivateComputersEnabled: !!row.WacViewingOnPrivateComputersEnabled,
       wSSAccessOnPublicComputersEnabled:   !!row.WSSAccessOnPublicComputersEnabled,
       uNCAccessOnPublicComputersEnabled:   !!row.UNCAccessOnPublicComputersEnabled,
-      // Enum
+      // Enum — Exchange retourne un entier (0=Allow, 1=ForceSave, 2=Block), on normalise en string
       actionForUnknownFileAndMIMETypes: row.ActionForUnknownFileAndMIMETypes != null
-        ? String(row.ActionForUnknownFileAndMIMETypes) : undefined,
+        ? (MIME_INT_TO_STR[String(row.ActionForUnknownFileAndMIMETypes)] ?? String(row.ActionForUnknownFileAndMIMETypes))
+        : undefined,
     });
     setDrawerOpen(true);
   };
@@ -468,14 +477,16 @@ function OwaTab() {
             description="Permet à l'utilisateur de changer son mot de passe depuis OWA." />
           <SettingRow name="junkEmailEnabled" label="Filtrage courrier indésirable"
             description="Affiche les options de gestion du courrier indésirable dans OWA." />
-          <SettingRow name="sMimeEnabled" label="S/MIME"
-            description="Active la prise en charge de S/MIME pour le chiffrement et les signatures." />
           <SettingRow name="iRMEnabled" label="IRM (Gestion des droits)"
             description="Active la protection IRM (Information Rights Management)." />
-          <SettingRow name="displayPhotosEnabled" label="Affichage des photos"
-            description="Affiche les photos de profil des contacts dans OWA." />
-          <SettingRow name="setPhotoEnabled" label="Modifier sa photo"
-            description="Permet à l'utilisateur de changer sa photo de profil depuis OWA." />
+          {exVer >= 15 && <>
+            <SettingRow name="sMimeEnabled" label="S/MIME"
+              description="Active la prise en charge de S/MIME pour le chiffrement et les signatures." />
+            <SettingRow name="displayPhotosEnabled" label="Affichage des photos"
+              description="Affiche les photos de profil des contacts dans OWA." />
+            <SettingRow name="setPhotoEnabled" label="Modifier sa photo"
+              description="Permet à l'utilisateur de changer sa photo de profil depuis OWA." />
+          </>}
 
           {/* ── Expérience utilisateur ─────────────────────────────────── */}
           <Divider orientation="left" orientationMargin={0}
@@ -520,8 +531,8 @@ function OwaTab() {
             description="Permet de récupérer des messages supprimés depuis la corbeille OWA." />
           <SettingRow name="searchFoldersEnabled" label="Dossiers de recherche"
             description="Autorise l'accès aux dossiers de recherche dans OWA." />
-          <SettingRow name="wacEditingEnabled" label="Édition Office Online"
-            description="Permet d'éditer les pièces jointes Office directement dans OWA via WAC." />
+          {exVer >= 15 && <SettingRow name="wacEditingEnabled" label="Édition Office Online"
+            description="Permet d'éditer les pièces jointes Office directement dans OWA via WAC." />}
 
           {/* ── Accès fichiers ─────────────────────────────────────────── */}
           <Divider orientation="left" orientationMargin={0}
@@ -536,10 +547,12 @@ function OwaTab() {
             description="Active la visionneuse Web Office pour les pièces jointes sur ordi. public." />
           <SettingRow name="webReadyDocumentViewingOnPrivateComputersEnabled" label="Affichage Web (ordi. privé)"
             description="Active la visionneuse Web Office pour les pièces jointes sur ordi. privé." />
-          <SettingRow name="wacViewingOnPublicComputersEnabled" label="Lecture WAC (ordi. public)"
-            description="Permet la lecture des documents Office via WAC sur ordinateur public." />
-          <SettingRow name="wacViewingOnPrivateComputersEnabled" label="Lecture WAC (ordi. privé)"
-            description="Permet la lecture des documents Office via WAC sur ordinateur privé." />
+          {exVer >= 15 && <>
+            <SettingRow name="wacViewingOnPublicComputersEnabled" label="Lecture WAC (ordi. public)"
+              description="Permet la lecture des documents Office via WAC sur ordinateur public." />
+            <SettingRow name="wacViewingOnPrivateComputersEnabled" label="Lecture WAC (ordi. privé)"
+              description="Permet la lecture des documents Office via WAC sur ordinateur privé." />
+          </>}
           <SettingRow name="wSSAccessOnPublicComputersEnabled" label="Accès UNC/WSS (ordi. public)"
             description="Autorise l'accès aux partages Windows/SharePoint sur ordinateur public." />
           <SettingRow name="uNCAccessOnPublicComputersEnabled" label="Accès UNC (ordi. public)"
@@ -564,25 +577,27 @@ function OwaTab() {
             </Form.Item>
           </div>
 
-          {/* ── Paramètres en lecture seule (non modifiables sur Exchange SE) ── */}
-          <Divider orientation="left" orientationMargin={0}
-            style={{ fontSize: 12, color: '#aaa', fontWeight: 500, margin: '16px 0 4px' }}>
-            🔍 Lecture seule (version Exchange)
-          </Divider>
-          {[
-            { key: 'WeatherEnabled',              label: 'Météo',                  desc: 'Affichage météo dans le calendrier OWA.' },
-            { key: 'PlacesEnabled',               label: 'Lieux',                  desc: 'Suggestions de lieux lors de la création d\'événements.' },
-            { key: 'LocalEventsEnabled',          label: 'Événements locaux',      desc: 'Suggestions d\'événements locaux dans le calendrier.' },
-            { key: 'InterestingCalendarsEnabled', label: 'Calendriers suggérés',   desc: 'Propose des calendriers d\'intérêt (sports, fêtes, etc.).' },
-          ].map(({ key, label, desc }) => (
-            <div key={key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f0f0f0', opacity: 0.6 }}>
-              <div style={{ flex: 1, paddingRight: 16 }}>
-                <div style={{ fontWeight: 500, fontSize: 13, color: '#888' }}>{label}</div>
-                <div style={{ fontSize: 12, color: '#bbb', marginTop: 2 }}>{desc}</div>
+          {/* ── Paramètres en lecture seule — Exchange 2016+ uniquement ── */}
+          {exVer >= 15 && <>
+            <Divider orientation="left" orientationMargin={0}
+              style={{ fontSize: 12, color: '#aaa', fontWeight: 500, margin: '16px 0 4px' }}>
+              🔍 Lecture seule (Exchange 2016+)
+            </Divider>
+            {[
+              { key: 'WeatherEnabled',              label: 'Météo',                  desc: 'Affichage météo dans le calendrier OWA.' },
+              { key: 'PlacesEnabled',               label: 'Lieux',                  desc: 'Suggestions de lieux lors de la création d\'événements.' },
+              { key: 'LocalEventsEnabled',          label: 'Événements locaux',      desc: 'Suggestions d\'événements locaux dans le calendrier.' },
+              { key: 'InterestingCalendarsEnabled', label: 'Calendriers suggérés',   desc: 'Propose des calendriers d\'intérêt (sports, fêtes, etc.).' },
+            ].map(({ key, label, desc }) => (
+              <div key={key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f0f0f0', opacity: 0.6 }}>
+                <div style={{ flex: 1, paddingRight: 16 }}>
+                  <div style={{ fontWeight: 500, fontSize: 13, color: '#888' }}>{label}</div>
+                  <div style={{ fontSize: 12, color: '#bbb', marginTop: 2 }}>{desc}</div>
+                </div>
+                <Tag color="default" style={{ fontSize: 11 }}>Non modifiable</Tag>
               </div>
-              <Tag color="default" style={{ fontSize: 11 }}>Non modifiable</Tag>
-            </div>
-          ))}
+            ))}
+          </>}
 
         </Form>
       </Drawer>

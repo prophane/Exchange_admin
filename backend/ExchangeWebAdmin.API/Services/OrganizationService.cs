@@ -43,6 +43,19 @@ public class OrganizationService
             return new();
         }
     }
+
+    /// <summary>
+    /// Retourne la version Exchange sous forme d'entier comparable :
+    ///   14 = Exchange 2010
+    ///   15 = Exchange 2013, 2016, 2019, SE
+    /// Permet d'activer/désactiver les paramètres cmdlet selon la version.
+    /// </summary>
+    private int ExVersion()
+    {
+        var v = _ps.GetCurrentInfrastructure()?.Version ?? "";
+        if (v.Contains("2010") || v.StartsWith("14")) return 14;
+        return 15; // 2013, 2016, 2019, SE
+    }
     // =========================================================================
     // ORGANISATION — Paramètres généraux
     // =========================================================================
@@ -380,57 +393,82 @@ public class OrganizationService
     public async Task RemoveRoleGroupMemberAsync(string groupName, string member)
         => await _ps.ExecuteScriptAsync($"Remove-RoleGroupMember -Identity '{groupName}' -Member '{member}' -Confirm:$false");
 
-    public async Task<List<Dictionary<string, object>>> GetOwaMailboxPoliciesAsync() =>
-        await SafeListAsync(
-            @"Get-OwaMailboxPolicy | Select-Object Name, IsDefault,
-              InstantMessagingEnabled, TextMessagingEnabled, ActiveSyncIntegrationEnabled,
-              ContactsEnabled, AllowOfflineOn,
-              JournalEnabled, NotesEnabled, RemindersAndNotificationsEnabled,
-              ChangePasswordEnabled, JunkEmailEnabled,
-              SMimeEnabled, IRMEnabled, DisplayPhotosEnabled, SetPhotoEnabled,
-              ThemeSelectionEnabled, PremiumClientEnabled, SpellCheckerEnabled,
-              AllAddressListsEnabled, GlobalAddressListEnabled, PublicFoldersEnabled,
-              CalendarEnabled, TasksEnabled, RulesEnabled, SignaturesEnabled,
-              DelegateAccessEnabled, RecoverDeletedItemsEnabled, SearchFoldersEnabled,
-              WacEditingEnabled,
-              WeatherEnabled, PlacesEnabled, LocalEventsEnabled, InterestingCalendarsEnabled,
-              ActionForUnknownFileAndMIMETypes,
-              DirectFileAccessOnPublicComputersEnabled, DirectFileAccessOnPrivateComputersEnabled,
-              WebReadyDocumentViewingOnPublicComputersEnabled, WebReadyDocumentViewingOnPrivateComputersEnabled,
-              WacViewingOnPublicComputersEnabled, WacViewingOnPrivateComputersEnabled,
-              WSSAccessOnPublicComputersEnabled, UNCAccessOnPublicComputersEnabled,
-              WhenChanged",
+    public async Task<List<Dictionary<string, object>>> GetOwaMailboxPoliciesAsync()
+    {
+        var exVer = ExVersion();
+
+        // Champs communs à toutes les versions (2010+)
+        var fields = new List<string>
+        {
+            "Name", "IsDefault",
+            "InstantMessagingEnabled", "TextMessagingEnabled", "ActiveSyncIntegrationEnabled",
+            "ContactsEnabled", "AllowOfflineOn",
+            "JournalEnabled", "NotesEnabled", "RemindersAndNotificationsEnabled",
+            "ChangePasswordEnabled", "JunkEmailEnabled", "IRMEnabled",
+            "ThemeSelectionEnabled", "PremiumClientEnabled", "SpellCheckerEnabled",
+            "AllAddressListsEnabled", "GlobalAddressListEnabled", "PublicFoldersEnabled",
+            "CalendarEnabled", "TasksEnabled", "RulesEnabled", "SignaturesEnabled",
+            "DelegateAccessEnabled", "RecoverDeletedItemsEnabled", "SearchFoldersEnabled",
+            "ActionForUnknownFileAndMIMETypes",
+            "DirectFileAccessOnPublicComputersEnabled", "DirectFileAccessOnPrivateComputersEnabled",
+            "WebReadyDocumentViewingOnPublicComputersEnabled", "WebReadyDocumentViewingOnPrivateComputersEnabled",
+            "WSSAccessOnPublicComputersEnabled", "UNCAccessOnPublicComputersEnabled",
+            "WhenChanged"
+        };
+
+        // Champs ajoutés dans Exchange 2013+
+        if (exVer >= 15)
+        {
+            fields.AddRange(new[]
+            {
+                "SMimeEnabled", "DisplayPhotosEnabled", "SetPhotoEnabled",
+                "WacEditingEnabled",
+                "WacViewingOnPublicComputersEnabled", "WacViewingOnPrivateComputersEnabled",
+                "WeatherEnabled", "PlacesEnabled", "LocalEventsEnabled", "InterestingCalendarsEnabled"
+            });
+        }
+
+        var select = string.Join(", ", fields);
+        return await SafeListAsync(
+            $"Get-OwaMailboxPolicy | Select-Object {select}",
             "Get-OwaMailboxPolicy");
+    }
 
     public async Task UpdateOwaMailboxPolicyAsync(string name, UpdateOwaPolicyRequest f)
     {
-        var p  = new List<string> { $"-Identity '{name.Replace("'", "''")}'"};
+        var exVer = ExVersion();
+        var p = new List<string> { $"-Identity '{name.Replace("'", "''")}'"};
         void B(string param, bool? v) { if (v.HasValue) p.Add($"-{param}:{(v.Value ? "$true" : "$false")}"); }
-        // Communication
+
+        // Communication (toutes versions)
         B("InstantMessagingEnabled",    f.InstantMessagingEnabled);
         B("TextMessagingEnabled",       f.TextMessagingEnabled);
         B("ActiveSyncIntegrationEnabled", f.ActiveSyncIntegrationEnabled);
         B("ContactsEnabled",            f.ContactsEnabled);
-        // Informations
+        // Informations (toutes versions)
         B("JournalEnabled",             f.JournalEnabled);
         B("NotesEnabled",               f.NotesEnabled);
         B("RemindersAndNotificationsEnabled", f.RemindersAndNotificationsEnabled);
-        // Sécurité
+        // Sécurité (toutes versions)
         B("ChangePasswordEnabled",      f.ChangePasswordEnabled);
         B("JunkEmailEnabled",           f.JunkEmailEnabled);
-        B("SMimeEnabled",               f.SMimeEnabled);
         B("IRMEnabled",                 f.IRMEnabled);
-        B("DisplayPhotosEnabled",       f.DisplayPhotosEnabled);
-        B("SetPhotoEnabled",            f.SetPhotoEnabled);
-        // Expérience utilisateur
+        // Sécurité Exchange 2013+ uniquement
+        if (exVer >= 15)
+        {
+            B("SMimeEnabled",           f.SMimeEnabled);
+            B("DisplayPhotosEnabled",   f.DisplayPhotosEnabled);
+            B("SetPhotoEnabled",        f.SetPhotoEnabled);
+        }
+        // Expérience utilisateur (toutes versions)
         B("ThemeSelectionEnabled",      f.ThemeSelectionEnabled);
         B("PremiumClientEnabled",       f.PremiumClientEnabled);
         B("SpellCheckerEnabled",        f.SpellCheckerEnabled);
-        // Carnet d'adresses
+        // Carnet d'adresses (toutes versions)
         B("AllAddressListsEnabled",     f.AllAddressListsEnabled);
         B("GlobalAddressListEnabled",   f.GlobalAddressListEnabled);
         B("PublicFoldersEnabled",       f.PublicFoldersEnabled);
-        // Organisation et fonctionnalités
+        // Organisation (toutes versions)
         B("CalendarEnabled",            f.CalendarEnabled);
         B("TasksEnabled",               f.TasksEnabled);
         B("RulesEnabled",               f.RulesEnabled);
@@ -438,19 +476,24 @@ public class OrganizationService
         B("DelegateAccessEnabled",      f.DelegateAccessEnabled);
         B("RecoverDeletedItemsEnabled", f.RecoverDeletedItemsEnabled);
         B("SearchFoldersEnabled",       f.SearchFoldersEnabled);
-        B("WacEditingEnabled",          f.WacEditingEnabled);
-        // Accès fichiers
+        // WAC Exchange 2013+ uniquement
+        if (exVer >= 15)
+        {
+            B("WacEditingEnabled",      f.WacEditingEnabled);
+            B("WacViewingOnPublicComputersEnabled",  f.WacViewingOnPublicComputersEnabled);
+            B("WacViewingOnPrivateComputersEnabled", f.WacViewingOnPrivateComputersEnabled);
+        }
+        // Accès fichiers (toutes versions)
         B("DirectFileAccessOnPublicComputersEnabled",  f.DirectFileAccessOnPublicComputersEnabled);
         B("DirectFileAccessOnPrivateComputersEnabled", f.DirectFileAccessOnPrivateComputersEnabled);
         B("WebReadyDocumentViewingOnPublicComputersEnabled",  f.WebReadyDocumentViewingOnPublicComputersEnabled);
         B("WebReadyDocumentViewingOnPrivateComputersEnabled", f.WebReadyDocumentViewingOnPrivateComputersEnabled);
-        B("WacViewingOnPublicComputersEnabled",  f.WacViewingOnPublicComputersEnabled);
-        B("WacViewingOnPrivateComputersEnabled", f.WacViewingOnPrivateComputersEnabled);
         B("WSSAccessOnPublicComputersEnabled",   f.WSSAccessOnPublicComputersEnabled);
         B("UNCAccessOnPublicComputersEnabled",   f.UNCAccessOnPublicComputersEnabled);
-        // Enum
+        // Enum MIME (toutes versions)
         if (!string.IsNullOrWhiteSpace(f.ActionForUnknownFileAndMIMETypes))
             p.Add($"-ActionForUnknownFileAndMIMETypes {f.ActionForUnknownFileAndMIMETypes}");
+
         await _ps.ExecuteScriptAsync($"Set-OwaMailboxPolicy {string.Join(" ", p)}");
     }
 
