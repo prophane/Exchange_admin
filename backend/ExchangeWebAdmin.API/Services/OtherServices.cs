@@ -156,25 +156,24 @@ public class DatabaseService : IDatabaseService
     {
         _logger.LogInformation("Récupération des bases de données");
 
-        var script = @"
-            Get-MailboxDatabase -Status | Select-Object Name, Server, EdbFilePath, LogFolderPath,
-                IssueWarningQuota, ProhibitSendQuota, ProhibitSendReceiveQuota,
-                Mounted | ConvertTo-Json -Depth 3
-        ";
+        // Pas de ConvertTo-Json : ExecuteScriptAsync retourne déjà List<Dictionary<string,object>>
+        var script = @"Get-MailboxDatabase -Status | Select-Object Name, Server, EdbFilePath, LogFolderPath,
+            IssueWarningQuota, ProhibitSendQuota, ProhibitSendReceiveQuota,
+            Mounted, MailboxRetention, DeletedItemRetention, WhenCreated";
 
         var result = await _psService.ExecuteScriptAsync(script);
-        return ParseJsonResult<List<MailboxDatabaseDto>>(result) ?? new List<MailboxDatabaseDto>();
+        return MapToDatabaseDtos(result);
     }
 
     public async Task<MailboxDatabaseDto?> GetDatabaseAsync(string identity)
     {
-        var script = $@"
-            Get-MailboxDatabase -Identity '{identity}' -Status | Select-Object Name, Server, 
-                EdbFilePath, LogFolderPath, Mounted | ConvertTo-Json -Depth 3
-        ";
+        var safeId = identity.Replace("'", "''");
+        var script = $@"Get-MailboxDatabase -Identity '{safeId}' -Status | Select-Object Name, Server, EdbFilePath, LogFolderPath,
+            IssueWarningQuota, ProhibitSendQuota, ProhibitSendReceiveQuota,
+            Mounted, MailboxRetention, DeletedItemRetention, WhenCreated";
 
         var result = await _psService.ExecuteScriptAsync(script);
-        return ParseJsonResult<MailboxDatabaseDto>(result);
+        return MapToDatabaseDtos(result).FirstOrDefault();
     }
 
     public async Task UpdateDatabaseAsync(string identity, string? issueWarningQuota, string? prohibitSendQuota,
@@ -196,18 +195,42 @@ public class DatabaseService : IDatabaseService
             await _psService.ExecuteScriptAsync(string.Join(" ", parts));
     }
 
-    private T? ParseJsonResult<T>(object result) where T : class
+    // Mappe List<Dictionary<string,object>> → List<MailboxDatabaseDto>
+    // Gère les cas où FlattenValue a retourné un objet complexe (dict) au lieu d'une string
+    private static IEnumerable<MailboxDatabaseDto> MapToDatabaseDtos(object result)
     {
-        if (result is List<object> list && list.Count > 0)
-        {
-            var jsonString = list[0].ToString();
-            if (string.IsNullOrEmpty(jsonString))
-                return null;
+        if (result is not List<Dictionary<string, object>> rows)
+            return [];
 
-            return System.Text.Json.JsonSerializer.Deserialize<T>(jsonString);
-        }
-        return null;
+        return rows.Select(d => new MailboxDatabaseDto
+        {
+            Name                     = SafeStr(d.GetValueOrDefault("Name")),
+            Server                   = SafeStr(d.GetValueOrDefault("Server")),
+            EdbFilePath              = SafeStr(d.GetValueOrDefault("EdbFilePath")),
+            LogFolderPath            = SafeStr(d.GetValueOrDefault("LogFolderPath")),
+            IssueWarningQuota        = SafeStr(d.GetValueOrDefault("IssueWarningQuota")),
+            ProhibitSendQuota        = SafeStr(d.GetValueOrDefault("ProhibitSendQuota")),
+            ProhibitSendReceiveQuota = SafeStr(d.GetValueOrDefault("ProhibitSendReceiveQuota")),
+            MailboxRetention         = SafeStr(d.GetValueOrDefault("MailboxRetention")),
+            DeletedItemRetention     = SafeStr(d.GetValueOrDefault("DeletedItemRetention")),
+            WhenCreated              = SafeStr(d.GetValueOrDefault("WhenCreated")),
+            Mounted                  = d.GetValueOrDefault("Mounted") is bool b && b,
+        });
     }
+
+    // Extrait une string depuis une valeur FlattenValue (string directe ou dict Exchange)
+    private static string? SafeStr(object? v) => v switch
+    {
+        null                             => null,
+        string s                         => string.IsNullOrEmpty(s) ? null : s,
+        // Objet Exchange désérialisé → FlattenValue l'a étendu en dict
+        // "Name" présent → ADServerIdParameter, EnhancedFileInfo, etc.
+        Dictionary<string, object> d when d.ContainsKey("Name")
+                                         => d["Name"]?.ToString(),
+        Dictionary<string, object> d when d.ContainsKey("Value")
+                                         => d["Value"]?.ToString(),
+        _                                => v.ToString()
+    };
 }
 
 // ============================================================================
