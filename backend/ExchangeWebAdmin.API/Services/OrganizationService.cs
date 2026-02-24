@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Options;
 using ExchangeWebAdmin.API.Models;
+using ExchangeWebAdmin.API.Controllers;
 
 namespace ExchangeWebAdmin.API.Services;
 
@@ -381,20 +382,40 @@ public class OrganizationService
 
     public async Task<List<Dictionary<string, object>>> GetOwaMailboxPoliciesAsync() =>
         await SafeListAsync(
-            @"Get-OwaMailboxPolicy | Select-Object Name, IsDefault, ActionForUnknownFileAndMIMETypes,
+            @"Get-OwaMailboxPolicy | Select-Object Name, IsDefault,
+              InstantMessagingEnabled, TextMessagingEnabled, ActiveSyncIntegrationEnabled,
+              ContactsEnabled, AllowOfflineOn,
+              JournalEnabled,
+              ChangePasswordEnabled, JunkEmailEnabled,
+              ThemeSelectionEnabled, PremiumClientEnabled,
+              WeatherEnabled, PlacesEnabled, LocalEventsEnabled, InterestingCalendarsEnabled,
+              CalendarEnabled, TasksEnabled,
+              ActionForUnknownFileAndMIMETypes,
               DirectFileAccessOnPublicComputersEnabled, DirectFileAccessOnPrivateComputersEnabled,
-              WebReadyDocumentViewingOnPublicComputersEnabled, WacViewingOnPublicComputersEnabled,
-              InstantMessagingEnabled, TextMessagingEnabled, CalendarEnabled, TasksEnabled,
-              PremiumClientEnabled, WhenChanged",
+              WacViewingOnPublicComputersEnabled, WacViewingOnPrivateComputersEnabled,
+              WhenChanged",
             "Get-OwaMailboxPolicy");
 
-    public async Task UpdateOwaMailboxPolicyAsync(string name, bool? instantMessaging, bool? calendar, bool? tasks)
+    public async Task UpdateOwaMailboxPolicyAsync(string name, UpdateOwaPolicyRequest f)
     {
-        var parts = new List<string> { $"-Identity '{name.Replace("'", "''")}'"};
-        if (instantMessaging.HasValue) parts.Add($"-InstantMessagingEnabled:{(instantMessaging.Value ? "$true" : "$false")}");
-        if (calendar.HasValue)         parts.Add($"-CalendarEnabled:{(calendar.Value ? "$true" : "$false")}");
-        if (tasks.HasValue)            parts.Add($"-TasksEnabled:{(tasks.Value ? "$true" : "$false")}");
-        await _ps.ExecuteScriptAsync($"Set-OwaMailboxPolicy {string.Join(" ", parts)}");
+        var p  = new List<string> { $"-Identity '{name.Replace("'", "''")}'"};
+        void B(string param, bool? v) { if (v.HasValue) p.Add($"{param}:{(v.Value ? "$true" : "$false")}"); }
+        B("-InstantMessagingEnabled",    f.InstantMessagingEnabled);
+        B("-TextMessagingEnabled",       f.TextMessagingEnabled);
+        B("-ActiveSyncIntegrationEnabled", f.ActiveSyncIntegrationEnabled);
+        B("-ContactsEnabled",            f.ContactsEnabled);
+        B("-JournalEnabled",             f.JournalEnabled);
+        B("-ChangePasswordEnabled",      f.ChangePasswordEnabled);
+        B("-JunkEmailEnabled",           f.JunkEmailEnabled);
+        B("-ThemeSelectionEnabled",      f.ThemeSelectionEnabled);
+        B("-PremiumClientEnabled",       f.PremiumClientEnabled);
+        B("-WeatherEnabled",             f.WeatherEnabled);
+        B("-PlacesEnabled",              f.PlacesEnabled);
+        B("-LocalEventsEnabled",         f.LocalEventsEnabled);
+        B("-InterestingCalendarsEnabled",f.InterestingCalendarsEnabled);
+        B("-CalendarEnabled",            f.CalendarEnabled);
+        B("-TasksEnabled",               f.TasksEnabled);
+        await _ps.ExecuteScriptAsync($"Set-OwaMailboxPolicy {string.Join(" ", p)}");
     }
 
     // =========================================================================

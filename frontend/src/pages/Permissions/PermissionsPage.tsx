@@ -313,22 +313,30 @@ function OwaTab() {
   const openEdit = (row: any) => {
     setEditTarget(row);
     editForm.setFieldsValue({
-      instantMessagingEnabled: !!row.InstantMessagingEnabled,
-      calendarEnabled: !!row.CalendarEnabled,
-      tasksEnabled: !!row.TasksEnabled,
+      instantMessagingEnabled:    !!row.InstantMessagingEnabled,
+      textMessagingEnabled:       !!row.TextMessagingEnabled,
+      activeSyncIntegrationEnabled: !!row.ActiveSyncIntegrationEnabled,
+      contactsEnabled:            !!row.ContactsEnabled,
+      journalEnabled:             !!row.JournalEnabled,
+      changePasswordEnabled:      !!row.ChangePasswordEnabled,
+      junkEmailEnabled:           !!row.JunkEmailEnabled,
+      themeSelectionEnabled:      !!row.ThemeSelectionEnabled,
+      premiumClientEnabled:       !!row.PremiumClientEnabled,
+      weatherEnabled:             !!row.WeatherEnabled,
+      placesEnabled:              !!row.PlacesEnabled,
+      localEventsEnabled:         !!row.LocalEventsEnabled,
+      interestingCalendarsEnabled:!!row.InterestingCalendarsEnabled,
+      calendarEnabled:            !!row.CalendarEnabled,
+      tasksEnabled:               !!row.TasksEnabled,
     });
     setEditVisible(true);
   };
 
   const handleEdit = async () => {
-    const values = await editForm.validateFields();
+    const v = await editForm.validateFields();
     setEditLoading(true);
     try {
-      await exchangeApi.updateOwaMailboxPolicy(editTarget.Name, {
-        instantMessagingEnabled: values.instantMessagingEnabled,
-        calendarEnabled: values.calendarEnabled,
-        tasksEnabled: values.tasksEnabled,
-      });
+      await exchangeApi.updateOwaMailboxPolicy(editTarget.Name, v);
       message.success('Stratégie OWA mise à jour');
       setEditVisible(false);
       load();
@@ -336,13 +344,18 @@ function OwaTab() {
     finally { setEditLoading(false); }
   };
 
+  const BoolTag = ({ v }: { v: any }) =>
+    <Tag color={v ? 'green' : 'default'} style={{ fontSize: 11 }}>{v ? 'Oui' : 'Non'}</Tag>;
+
   const columns: ColumnsType<any> = [
     { title: 'Nom', dataIndex: 'Name' },
-    { title: 'Par défaut', dataIndex: 'IsDefault', render: v => v ? <Tag color="green">Oui</Tag> : <Tag>Non</Tag> },
-    { title: 'Messagerie instantanée', dataIndex: 'InstantMessagingEnabled', render: v => <Tag color={v ? 'green' : 'default'}>{v ? 'Activé' : 'Désactivé'}</Tag> },
-    { title: 'Calendrier', dataIndex: 'CalendarEnabled', render: v => <Tag color={v ? 'green' : 'default'}>{v ? 'Activé' : 'Désactivé'}</Tag> },
-    { title: 'Tâches', dataIndex: 'TasksEnabled', render: v => <Tag color={v ? 'green' : 'default'}>{v ? 'Activé' : 'Désactivé'}</Tag> },
-    { title: 'Modifié le', dataIndex: 'WhenChanged', render: v => v ? dayjs(v).format('DD/MM/YYYY') : '-' },
+    { title: 'Par défaut', dataIndex: 'IsDefault', width: 100, render: v => v ? <Tag color="green">Oui</Tag> : <Tag>Non</Tag> },
+    { title: 'Mess. instant.', dataIndex: 'InstantMessagingEnabled', width: 120, render: v => <BoolTag v={v} /> },
+    { title: 'ActiveSync',    dataIndex: 'ActiveSyncIntegrationEnabled', width: 100, render: v => <BoolTag v={v} /> },
+    { title: 'Calendrier',   dataIndex: 'CalendarEnabled',  width: 100, render: v => <BoolTag v={v} /> },
+    { title: 'Tâches',       dataIndex: 'TasksEnabled',     width: 80,  render: v => <BoolTag v={v} /> },
+    { title: 'Premium',      dataIndex: 'PremiumClientEnabled', width: 80, render: v => <BoolTag v={v} /> },
+    { title: 'Modifié le',   dataIndex: 'WhenChanged', width: 110, render: v => v ? dayjs(v).format('DD/MM/YYYY') : '-' },
     {
       title: '', width: 60, align: 'center',
       render: (_, row) => (
@@ -351,25 +364,47 @@ function OwaTab() {
     },
   ];
 
+  const SW = ({ name, label }: { name: string; label: string }) => (
+    <Form.Item name={name} label={label} valuePropName="checked" style={{ marginBottom: 8 }}>
+      <Switch size="small" />
+    </Form.Item>
+  );
+
   return (
     <>
       <Table rowKey="Name" dataSource={data} columns={columns} loading={loading}
-        size="small" pagination={{ pageSize: 20 }}
+        size="small" pagination={{ pageSize: 20 }} scroll={{ x: true }}
         footer={() => `${data.length} stratégies OWA`}
         title={() => <Button icon={<ReloadOutlined />} onClick={load} size="small">Actualiser</Button>} />
       <Modal title={`Modifier "${editTarget?.Name}"`} open={editVisible}
         onCancel={() => setEditVisible(false)} onOk={handleEdit}
-        okText="Enregistrer" confirmLoading={editLoading}>
-        <Form form={editForm} layout="vertical" style={{ marginTop: 12 }}>
-          <Form.Item name="instantMessagingEnabled" label="Messagerie instantanée" valuePropName="checked">
-            <Switch />
-          </Form.Item>
-          <Form.Item name="calendarEnabled" label="Calendrier" valuePropName="checked">
-            <Switch />
-          </Form.Item>
-          <Form.Item name="tasksEnabled" label="Tâches" valuePropName="checked">
-            <Switch />
-          </Form.Item>
+        okText="Enregistrer" confirmLoading={editLoading} width={520}>
+        <Form form={editForm} layout="vertical" style={{ marginTop: 12, columnCount: 2, columnGap: 24 }}>
+          <div><strong style={{ fontSize: 12, color: '#888' }}>Communication</strong>
+            <SW name="instantMessagingEnabled"    label="Messagerie instantanée" />
+            <SW name="textMessagingEnabled"       label="Messagerie texte" />
+            <SW name="activeSyncIntegrationEnabled" label="Exchange ActiveSync" />
+            <SW name="contactsEnabled"            label="Contacts" />
+          </div>
+          <div><strong style={{ fontSize: 12, color: '#888' }}>Informations</strong>
+            <SW name="journalEnabled"             label="Journalisation" />
+          </div>
+          <div><strong style={{ fontSize: 12, color: '#888' }}>Sécurité</strong>
+            <SW name="changePasswordEnabled"      label="Changer le mot de passe" />
+            <SW name="junkEmailEnabled"           label="Filtrage courrier indés." />
+          </div>
+          <div><strong style={{ fontSize: 12, color: '#888' }}>Expérience utilisateur</strong>
+            <SW name="themeSelectionEnabled"      label="Thèmes" />
+            <SW name="premiumClientEnabled"       label="Client premium" />
+            <SW name="weatherEnabled"             label="Météo" />
+            <SW name="placesEnabled"              label="Lieux" />
+            <SW name="localEventsEnabled"         label="Événements locaux" />
+            <SW name="interestingCalendarsEnabled" label="Calendriers suggérés" />
+          </div>
+          <div><strong style={{ fontSize: 12, color: '#888' }}>Autres</strong>
+            <SW name="calendarEnabled"            label="Calendrier" />
+            <SW name="tasksEnabled"               label="Tâches" />
+          </div>
         </Form>
       </Modal>
     </>

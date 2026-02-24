@@ -444,7 +444,7 @@ public class OrganizationController : ControllerBase
     [HttpPut("owa-policies/{name}")]
     public async Task<IActionResult> UpdateOwaMailboxPolicy(string name, [FromBody] UpdateOwaPolicyRequest req)
     {
-        try { await _org.UpdateOwaMailboxPolicyAsync(name, req.InstantMessagingEnabled, req.CalendarEnabled, req.TasksEnabled); return Ok(new { success = true }); }
+        try { await _org.UpdateOwaMailboxPolicyAsync(name, req); return Ok(new { success = true }); }
         catch (Exception ex) { return StatusCode(500, new { success = false, error = ex.Message }); }
     }
 
@@ -563,4 +563,20 @@ public record CreateDagRequest(string Name, string WitnessServer, string Witness
 public record UpdateDagRequest(string? WitnessServer, string? WitnessDirectory);
 public record CreateRoleGroupRequest(string Name, string? Description);
 public record UpdateRoleGroupRequest(string? Description);
-public record UpdateOwaPolicyRequest(bool? InstantMessagingEnabled, bool? CalendarEnabled, bool? TasksEnabled);
+public record UpdateOwaPolicyRequest(
+    bool? InstantMessagingEnabled,
+    bool? TextMessagingEnabled,
+    bool? ActiveSyncIntegrationEnabled,
+    bool? ContactsEnabled,
+    bool? JournalEnabled,
+    bool? ChangePasswordEnabled,
+    bool? JunkEmailEnabled,
+    bool? ThemeSelectionEnabled,
+    bool? PremiumClientEnabled,
+    bool? WeatherEnabled,
+    bool? PlacesEnabled,
+    bool? LocalEventsEnabled,
+    bool? InterestingCalendarsEnabled,
+    bool? CalendarEnabled,
+    bool? TasksEnabled
+);
