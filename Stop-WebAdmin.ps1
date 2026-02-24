@@ -1,47 +1,37 @@
-﻿# ============================================
-# STOP-WebAdmin.ps1 : Arrêt Backend & Frontend
-# ============================================
-
-# Forcer UTF-8 pour que les caractères spéciaux s'affichent correctement
-# quelle que soit la machine (chcp 65001 n'est pas toujours actif)
+# ============================================================
+# Stop-WebAdmin.ps1 — Arret Exchange Web Admin
+# ============================================================
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
 $OutputEncoding = [System.Text.UTF8Encoding]::new()
 try { chcp 65001 | Out-Null } catch {}
 
-Write-Host "`n═══════════════════════════════════════════" -ForegroundColor Cyan
-Write-Host "  ARRÊT - EXCHANGE WEB ADMIN" -ForegroundColor Cyan
-Write-Host "═══════════════════════════════════════════`n" -ForegroundColor Cyan
-
-# Arrêt Backend (dotnet sur port 5000)
-Write-Host "🛑 Arrêt du backend (dotnet sur port 5000)..." -ForegroundColor Yellow
-$dotnetProcs = Get-NetTCPConnection -LocalPort 5000 -State Listen -ErrorAction SilentlyContinue |
-    Select-Object -ExpandProperty OwningProcess -Unique |
-    ForEach-Object { Get-Process -Id $_ -ErrorAction SilentlyContinue }
-if ($dotnetProcs) {
-    $dotnetProcs | ForEach-Object {
-        Write-Host "  → Stop process: $($_.ProcessName) (PID $($_.Id))" -ForegroundColor Gray
-        Stop-Process -Id $_.Id -Force
+function Kill-Port($port, $label) {
+    $pids = @(Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue |
+              Select-Object -ExpandProperty OwningProcess -Unique)
+    if ($pids.Count -eq 0) {
+        Write-Host "   --  $label   (port $port libre)" -ForegroundColor DarkGray
+        return
     }
-    Write-Host "✅ Backend arrêté" -ForegroundColor Green
-} else {
-    Write-Host "Aucun backend à arrêter (port 5000 libre)" -ForegroundColor Gray
+    foreach ($pid in $pids) {
+        $proc = Get-Process -Id $pid -ErrorAction SilentlyContinue
+        if ($proc) {
+            Write-Host "   OK  $label  $($proc.ProcessName) (PID $pid)" -ForegroundColor Green
+            Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
+        }
+    }
 }
 
-# Arrêt Frontend (node sur port 3000)
-Write-Host "🛑 Arrêt du frontend (node sur port 3000)..." -ForegroundColor Yellow
-$nodeProcs = Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue |
-    Select-Object -ExpandProperty OwningProcess -Unique |
-    ForEach-Object { Get-Process -Id $_ -ErrorAction SilentlyContinue }
-if ($nodeProcs) {
-    $nodeProcs | ForEach-Object {
-        Write-Host "  → Stop process: $($_.ProcessName) (PID $($_.Id))" -ForegroundColor Gray
-        Stop-Process -Id $_.Id -Force
-    }
-    Write-Host "✅ Frontend arrêté" -ForegroundColor Green
-} else {
-    Write-Host "Aucun frontend à arrêter (port 3000 libre)" -ForegroundColor Gray
-}
+Write-Host ""
+Write-Host "  ============================================" -ForegroundColor Cyan
+Write-Host "   EXCHANGE WEB ADMIN - ARRET"                -ForegroundColor Cyan
+Write-Host "  ============================================" -ForegroundColor Cyan
+Write-Host ""
 
-Write-Host "═══════════════════════════════════════════" -ForegroundColor Cyan
-Write-Host "  ✅ ARRÊT TERMINÉ" -ForegroundColor Green
-Write-Host "═══════════════════════════════════════════`n" -ForegroundColor Cyan
+Kill-Port 5000 "Backend  "
+Kill-Port 3000 "Frontend "
+
+Write-Host ""
+Write-Host "  ============================================" -ForegroundColor Cyan
+Write-Host "   ARRET TERMINE"                             -ForegroundColor Green
+Write-Host "  ============================================" -ForegroundColor Cyan
+Write-Host ""

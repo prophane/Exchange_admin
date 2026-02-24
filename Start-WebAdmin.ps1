@@ -1,151 +1,114 @@
-﻿# ============================================
-# DÉMARRAGE: Exchange Web Admin
-# ============================================
-
-# Forcer UTF-8 pour un affichage correct sur toutes les machines
+# ============================================================
+# Start-WebAdmin.ps1 — Lancement Exchange Web Admin
+# ============================================================
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
 $OutputEncoding = [System.Text.UTF8Encoding]::new()
 try { chcp 65001 | Out-Null } catch {}
 
-Write-Host "`n═══════════════════════════════════════════" -ForegroundColor Cyan
-Write-Host "  DÉMARRAGE - EXCHANGE WEB ADMIN" -ForegroundColor Cyan
-Write-Host "═══════════════════════════════════════════`n" -ForegroundColor Cyan
+$root        = $PSScriptRoot
+$backendDir  = "$root\backend\ExchangeWebAdmin.API"
+$frontendDir = "$root\frontend"
+$backendUrl  = "http://localhost:5000"
+$frontendUrl = "http://localhost:3000"
 
-# Étape 1: Test connexion Exchange (non bloquant)
-Write-Host "🔍 Étape 1/5: Test connexion Exchange..." -ForegroundColor Yellow
-
-$exchangeOk = $false
-try {
-    $session = New-PSSession -ConfigurationName Microsoft.Exchange `
-        -ConnectionUri http://tls-exch-lab.tls-lab.local/PowerShell `
-        -Authentication Kerberos `
-        -ErrorAction Stop
-    
-    Write-Host "✅ Session Exchange créée avec succès!" -ForegroundColor Green
-    
-    # Test cmdlet
-    $mailboxes = Invoke-Command -Session $session -ScriptBlock { Get-Mailbox -ResultSize 3 }
-    Write-Host "✅ Get-Mailbox fonctionne: $($mailboxes.Count) boîtes trouvées" -ForegroundColor Green
-    Write-Host "   > $($mailboxes.DisplayName -join ', ')" -ForegroundColor Gray
-    
-    # Nettoyer
-    Remove-PSSession $session
-    Write-Host "✅ Session fermée proprement`n" -ForegroundColor Green
-    $exchangeOk = $true
-    
-} catch {
-    Write-Host "⚠️  Exchange non disponible: $($_.Exception.Message)" -ForegroundColor Yellow
-    Write-Host "   → Le backend démarrera quand même, Exchange sera testé au runtime`n" -ForegroundColor Gray
+function Write-Step($n, $total, $msg) {
+    Write-Host ""
+    Write-Host "  [$n/$total] $msg" -ForegroundColor Cyan
 }
+function Write-OK($msg)   { Write-Host "        OK  $msg" -ForegroundColor Green }
+function Write-Skip($msg) { Write-Host "        --  $msg" -ForegroundColor DarkGray }
+function Write-Warn($msg) { Write-Host "        !!  $msg" -ForegroundColor Yellow }
+function Write-Err($msg)  { Write-Host "       ERR  $msg" -ForegroundColor Red }
 
-# Étape 2: Vérification PowerShellService
-Write-Host "🔧 Étape 2/5: Vérification PowerShellService..." -ForegroundColor Yellow
-Write-Host "✅ Version actuelle utilisée (credentials Exchange intégrés)`n" -ForegroundColor Green
+Write-Host ""
+Write-Host "  ============================================" -ForegroundColor Cyan
+Write-Host "   EXCHANGE WEB ADMIN - DEMARRAGE"            -ForegroundColor Cyan
+Write-Host "  ============================================" -ForegroundColor Cyan
 
-# Étape 3: Restore NuGet + Lancement Backend API
-Write-Host "🚀 Étape 3/5: Lancement Backend API..." -ForegroundColor Yellow
-
-$backendDir = "$PSScriptRoot\backend\ExchangeWebAdmin.API"
-$backendBin = "$backendDir\bin"
-if (-not (Test-Path $backendBin)) {
-    Write-Host "   📦 Premier lancement — restauration des packages NuGet..." -ForegroundColor Cyan
-    $restore = Start-Process -FilePath "dotnet" -ArgumentList "restore" `
-        -WorkingDirectory $backendDir -Wait -PassThru -NoNewWindow
-    if ($restore.ExitCode -eq 0) {
-        Write-Host "✅ dotnet restore terminé`n" -ForegroundColor Green
-    } else {
-        Write-Host "❌ dotnet restore échoué (code $($restore.ExitCode)). Vérifiez .NET SDK et la connexion." -ForegroundColor Red
-        pause; exit 1
+# -- Etape 1 : NuGet --------------------------------------------------------
+Write-Step 1 4 "Packages NuGet..."
+if (-not (Test-Path "$backendDir\bin")) {
+    Write-Host "        Restauration NuGet en cours..." -ForegroundColor Gray
+    $r = Start-Process dotnet -ArgumentList "restore" -WorkingDirectory $backendDir -Wait -PassThru -NoNewWindow
+    if ($r.ExitCode -ne 0) {
+        Write-Err "dotnet restore a echoue (code $($r.ExitCode)). Verifiez .NET SDK."
+        exit 1
     }
+    Write-OK "NuGet restaure"
 } else {
-    Write-Host "✅ Packages NuGet déjà présents`n" -ForegroundColor Green
+    Write-Skip "Packages NuGet deja presents"
 }
 
-# Vérifier si port 5000 déjà utilisé
-$port5000 = (Get-NetTCPConnection -LocalPort 5000 -State Listen -ErrorAction SilentlyContinue)
-if ($port5000) {
-    Write-Host "✅ Backend déjà en écoute sur le port 5000`n" -ForegroundColor Green
-} else {
-    Write-Host "   Lancement automatique du backend en arrière-plan..." -ForegroundColor Cyan
-    $backendJob = Start-Process -FilePath "dotnet" `
-        -ArgumentList "run --urls http://localhost:5000" `
-        -WorkingDirectory $backendDir `
-        -PassThru -WindowStyle Normal
-    Write-Host "✅ Backend lancé (PID $($backendJob.Id)) — attente démarrage (10s)..." -ForegroundColor Green
-    Start-Sleep 10
-    $ok = (Get-NetTCPConnection -LocalPort 5000 -State Listen -ErrorAction SilentlyContinue)
-    if ($ok) { Write-Host "✅ Backend opérationnel sur http://localhost:5000`n" -ForegroundColor Green }
-    else { 
-        Write-Host "⚠️  Backend non détecté sur port 5000. Lancez manuellement dans un nouveau terminal:" -ForegroundColor Yellow
-        Write-Host "   cd $PSScriptRoot\backend\ExchangeWebAdmin.API" -ForegroundColor White
-        Write-Host "   dotnet run --urls 'http://localhost:5000'`n" -ForegroundColor White
+# -- Etape 2 : npm ----------------------------------------------------------
+Write-Step 2 4 "Packages npm..."
+if (-not (Test-Path "$frontendDir\node_modules")) {
+    if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
+        Write-Err "npm introuvable. Installez Node.js puis relancez."
+        exit 1
     }
+    Write-Host "        npm install en cours..." -ForegroundColor Gray
+    $r = Start-Process cmd.exe -ArgumentList "/c npm install" -WorkingDirectory $frontendDir -Wait -PassThru -NoNewWindow
+    if ($r.ExitCode -ne 0) {
+        Write-Err "npm install a echoue (code $($r.ExitCode))."
+        exit 1
+    }
+    Write-OK "npm install termine"
+} else {
+    Write-Skip "node_modules deja presents"
 }
 
-# Étape 4: Instructions pour le frontend
-Write-Host "🎨 Étape 4/5: Lancement Frontend React..." -ForegroundColor Yellow
-$frontendDir = "$PSScriptRoot\frontend"
-if (Test-Path "$frontendDir\\node_modules") {
-    # Vérifie que npm est dans le PATH
-    $npmPath = Get-Command npm -ErrorAction SilentlyContinue
-    if ($null -eq $npmPath) {
-        Write-Host "❌ npm n'est pas dans le PATH système. Lancement manuel requis." -ForegroundColor Red
-        Write-Host "   cd $frontendDir" -ForegroundColor White
-        Write-Host "   npm run dev`n" -ForegroundColor White
-    } else {
-        Write-Host "   Lancement automatique du frontend dans une nouvelle fenêtre..." -ForegroundColor Cyan
+# -- Etape 3 : Backend ------------------------------------------------------
+Write-Step 3 4 "Lancement Backend API..."
+if (Get-NetTCPConnection -LocalPort 5000 -State Listen -ErrorAction SilentlyContinue) {
+    Write-Skip "Backend deja en ecoute sur le port 5000"
+} else {
+    Start-Process powershell.exe `
+        -ArgumentList "-NoExit -NoProfile -ExecutionPolicy Bypass -Command `"cd '$backendDir'; dotnet run --urls '$backendUrl'`"" `
+        -WindowStyle Normal
+    Write-Host "        Attente demarrage backend" -ForegroundColor Gray -NoNewline
+    $deadline = (Get-Date).AddSeconds(60)
+    $ready = $false
+    while ((Get-Date) -lt $deadline) {
+        Start-Sleep 2
+        Write-Host "." -ForegroundColor Gray -NoNewline
         try {
-            $frontendCmd = 'cd /d ' + $frontendDir + ' & npm run dev'
-            $startArgs = '/c start "Exchange Web Admin - Frontend" cmd.exe /k "' + $frontendCmd + '"'
-            Start-Process 'cmd.exe' -ArgumentList $startArgs -WindowStyle Normal -ErrorAction Stop
-            Write-Host "✅ Frontend lancé dans une nouvelle fenêtre.`n" -ForegroundColor Green
-        } catch {
-            Write-Host "❌ Échec du lancement automatique du frontend : $($_.Exception.Message)" -ForegroundColor Red
-            Write-Host "   Lancez manuellement :" -ForegroundColor Yellow
-            Write-Host "   cd $frontendDir" -ForegroundColor White
-            Write-Host "   npm run dev`n" -ForegroundColor White
-        }
+            $resp = Invoke-WebRequest "$backendUrl/health" -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
+            if ($resp.StatusCode -lt 500) { $ready = $true; break }
+        } catch { <# pas encore pret #> }
     }
-} else {
-    Write-Host "   📦 Premier lancement — installation des dépendances npm..." -ForegroundColor Cyan
-    $npmPath = Get-Command npm -ErrorAction SilentlyContinue
-    if ($null -eq $npmPath) {
-        Write-Host "❌ npm n'est pas dans le PATH. Installez Node.js puis relancez." -ForegroundColor Red
-        pause; exit 1
-    }
-    $npmInstall = Start-Process -FilePath "cmd.exe" -ArgumentList "/c npm install" `
-        -WorkingDirectory $frontendDir -Wait -PassThru -NoNewWindow
-    if ($npmInstall.ExitCode -eq 0) {
-        Write-Host "✅ npm install terminé`n" -ForegroundColor Green
-        # Lancer le frontend maintenant que node_modules est présent
-        $npmPath2 = Get-Command npm -ErrorAction SilentlyContinue
-        if ($npmPath2) {
-            try {
-                $frontendCmd = 'cd /d ' + $frontendDir + ' & npm run dev'
-                $startArgs = '/c start "Exchange Web Admin - Frontend" cmd.exe /k "' + $frontendCmd + '"'
-                Start-Process 'cmd.exe' -ArgumentList $startArgs -WindowStyle Normal -ErrorAction Stop
-                Write-Host "✅ Frontend lancé dans une nouvelle fenêtre.`n" -ForegroundColor Green
-            } catch {
-                Write-Host "❌ Échec du lancement : $($_.Exception.Message)" -ForegroundColor Red
-            }
-        }
+    Write-Host ""
+    if ($ready) {
+        Write-OK "Backend operationnel sur $backendUrl"
     } else {
-        Write-Host "❌ npm install échoué (code $($npmInstall.ExitCode)). Vérifiez la connexion internet." -ForegroundColor Red
-        pause; exit 1
+        Write-Warn "Backend non detecte apres 60 s (demarrage peut-etre encore en cours)"
     }
 }
 
-# Étape 5: Accès Web UI
-Write-Host "🌐 Étape 5/5: Accès interface Web..." -ForegroundColor Yellow
-Write-Host "   Ouvrir dans le navigateur:" -ForegroundColor Cyan
-Write-Host "   http://localhost:3000`n" -ForegroundColor White
+# -- Etape 4 : Frontend -----------------------------------------------------
+Write-Step 4 4 "Lancement Frontend React..."
+if (Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue) {
+    Write-Skip "Frontend deja en ecoute sur le port 3000"
+} else {
+    if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
+        Write-Err "npm introuvable. Lancez manuellement : cd $frontendDir  puis  npm run dev"
+    } else {
+        Start-Process powershell.exe `
+            -ArgumentList "-NoExit -NoProfile -ExecutionPolicy Bypass -Command `"cd '$frontendDir'; npm run dev`"" `
+            -WindowStyle Normal
+        Write-OK "Frontend lance dans une nouvelle fenetre"
+    }
+}
 
-Write-Host "═══════════════════════════════════════════" -ForegroundColor Cyan
-Write-Host "  ✅ TEST RÉUSSI - Prêt pour lancement!" -ForegroundColor Green
-Write-Host "═══════════════════════════════════════════`n" -ForegroundColor Cyan
+# -- Resume -----------------------------------------------------------------
+Write-Host ""
+Write-Host "  ============================================" -ForegroundColor Cyan
+Write-Host "   DEMARRAGE TERMINE"                         -ForegroundColor Green
+Write-Host "  ============================================" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "   Backend  : $backendUrl"  -ForegroundColor White
+Write-Host "   Frontend : $frontendUrl" -ForegroundColor White
+Write-Host ""
+Write-Host "   Pour arreter : .\Stop-WebAdmin.ps1" -ForegroundColor DarkGray
+Write-Host ""
 
-Write-Host "💡 NOTES IMPORTANTES:" -ForegroundColor Yellow
-Write-Host "   • Version optimisée: 1 SEULE session Exchange" -ForegroundColor Gray
-Write-Host "   • Plus de problème de quota" -ForegroundColor Gray
-Write-Host "   • Session partagée entre toutes les requêtes" -ForegroundColor Gray
-Write-Host "   - Fermeture propre au shutdown de l API`n" -ForegroundColor Gray
+Start-Process $frontendUrl
