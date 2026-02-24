@@ -43,6 +43,8 @@ public class PowerShellService : IPowerShellService, IDisposable
         _settings = settings.Value;
     }
 
+    private bool _isNoLanguage = false;
+
     // ── Gestion infra / credentials ──────────────────────────────────────────
 
     public void SetInfrastructure(ExchangeInfrastructure infra)
@@ -131,6 +133,22 @@ public class PowerShellService : IPowerShellService, IDisposable
             _ps = PowerShell.Create();
             _ps.Runspace = _remoteRunspace;
 
+            // Détecter si le runspace distant est en NoLanguage mode (ex: Exchange SE)
+            // En NoLanguage, AddScript() est interdit — on devra utiliser AddCommand()
+            try
+            {
+                using var testPs = PowerShell.Create();
+                testPs.Runspace = _remoteRunspace;
+                testPs.AddScript("1+1");
+                testPs.Invoke();
+                _isNoLanguage = testPs.HadErrors || testPs.Streams.Error.Count > 0;
+            }
+            catch
+            {
+                _isNoLanguage = true;
+            }
+            _logger.LogInformation("Mode runspace: {Mode}", _isNoLanguage ? "NoLanguage (Exchange SE)" : "FullLanguage");
+
             _logger.LogInformation("Session Exchange ouverte sur {Uri}", connectionUri);
             _isInitialized = true;
         }
@@ -195,7 +213,13 @@ public class PowerShellService : IPowerShellService, IDisposable
             // la durée de vie du PowerShell et resterait true après la première erreur
             _ps.Streams.Error.Clear();
             _ps.Streams.Warning.Clear();
-            _ps.AddScript(script);
+
+            // En NoLanguage mode (Exchange SE), AddScript() est interdit.
+            // On convertit le texte en pipeline AddCommand/AddParameter.
+            if (_isNoLanguage)
+                BuildPipelineFromScript(_ps, script);
+            else
+                _ps.AddScript(script);
 
             if (parameters != null)
             {
@@ -269,6 +293,120 @@ public class PowerShellService : IPowerShellService, IDisposable
         {
             _executionLock.Release();
         }
+    }
+
+    // ── Pipeline builder pour NoLanguage mode ────────────────────────────────
+    // Convertit "Get-Mailbox -ResultSize 100 | Select-Object Name, Foo"
+    // en AddCommand("Get-Mailbox").AddParameter("ResultSize",100)
+    //    .AddCommand("Select-Object").AddParameter("Property",["Name","Foo"])
+
+    private static void BuildPipelineFromScript(PowerShell ps, string script)
+    {
+        var segments = SplitOnPipe(script.Trim());
+        bool first = true;
+        foreach (var rawSeg in segments)
+        {
+            var seg = rawSeg.Trim();
+            if (string.IsNullOrWhiteSpace(seg)) continue;
+            var tokens = TokenizeSegment(seg);
+            if (tokens.Count == 0) continue;
+
+            if (first) { ps.AddCommand(tokens[0]); first = false; }
+            else        { ps.AddCommand(tokens[0], false); }
+
+            ParseAndAddParameters(ps, tokens.Skip(1).ToList());
+        }
+    }
+
+    private static List<string> SplitOnPipe(string script)
+    {
+        var segments = new List<string>();
+        var sb = new System.Text.StringBuilder();
+        bool inSq = false, inDq = false;
+        foreach (char c in script)
+        {
+            if      (c == '\'' && !inDq) inSq = !inSq;
+            else if (c == '"' && !inSq)  inDq = !inDq;
+            else if (c == '|' && !inSq && !inDq) { segments.Add(sb.ToString()); sb.Clear(); continue; }
+            sb.Append(c);
+        }
+        segments.Add(sb.ToString());
+        return segments.Where(s => !string.IsNullOrWhiteSpace(s)).ToList();
+    }
+
+    private static List<string> TokenizeSegment(string seg)
+    {
+        var tokens = new List<string>();
+        var sb = new System.Text.StringBuilder();
+        bool inSq = false, inDq = false;
+        foreach (char c in seg)
+        {
+            if      (c == '\'' && !inDq) { inSq = !inSq; sb.Append(c); }
+            else if (c == '"' && !inSq)  { inDq = !inDq; sb.Append(c); }
+            else if (char.IsWhiteSpace(c) && !inSq && !inDq)
+            { if (sb.Length > 0) { tokens.Add(sb.ToString()); sb.Clear(); } }
+            else sb.Append(c);
+        }
+        if (sb.Length > 0) tokens.Add(sb.ToString());
+        return tokens;
+    }
+
+    private static void ParseAndAddParameters(PowerShell ps, List<string> tokens)
+    {
+        // Si les tokens ne commencent pas par '-', c'est une liste positionnelle
+        // (ex: propriétés pour Select-Object)
+        if (tokens.Count > 0 && !tokens[0].StartsWith("-"))
+        {
+            var joined = string.Join(" ", tokens);
+            var props = joined.Split(',')
+                              .Select(p => p.Trim().Trim('"', '\''))
+                              .Where(p => p.Length > 0)
+                              .ToArray();
+            if (props.Length > 0)
+                ps.AddParameter("Property", props);
+            return;
+        }
+
+        int i = 0;
+        while (i < tokens.Count)
+        {
+            var tok = tokens[i];
+            if (!tok.StartsWith("-")) { i++; continue; }
+            var paramName = tok.TrimStart('-');
+
+            // Valeur suivante ?
+            if (i + 1 < tokens.Count && !tokens[i + 1].StartsWith("-"))
+            {
+                // Collecter toutes les valeurs jusqu'au prochain paramètre
+                var valueParts = new List<string>();
+                i++;
+                while (i < tokens.Count && !tokens[i].StartsWith("-"))
+                { valueParts.Add(tokens[i]); i++; }
+                var valueStr = string.Join(" ", valueParts).Trim().TrimEnd(',');
+                ps.AddParameter(paramName, ParsePsValue(valueStr));
+            }
+            else
+            {
+                // Switch
+                ps.AddParameter(paramName);
+                i++;
+            }
+        }
+    }
+
+    private static object ParsePsValue(string v)
+    {
+        if (v.Equals("$true",  StringComparison.OrdinalIgnoreCase)) return true;
+        if (v.Equals("$false", StringComparison.OrdinalIgnoreCase)) return false;
+        if (v.Equals("$null",  StringComparison.OrdinalIgnoreCase)) return null!;
+        if ((v.StartsWith("'") && v.EndsWith("'")) ||
+            (v.StartsWith("\"") && v.EndsWith("\"")))
+            return v[1..^1];
+        if (v.Contains(','))
+            return v.Split(',').Select(s => s.Trim().Trim('"','\'')).Where(s => s.Length > 0).ToArray();
+        if (int.TryParse(v,  out var iv)) return iv;
+        if (long.TryParse(v, out var lv)) return lv;
+        return v;
     }
 
     /// <summary>
