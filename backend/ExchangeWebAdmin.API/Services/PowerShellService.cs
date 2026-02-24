@@ -397,15 +397,28 @@ public class PowerShellService : IPowerShellService, IDisposable
     {
         if (depth > 5) return value?.ToString() ?? "";
 
-        // Unwrap PSObject — sauf si le BaseObject est un PSCustomObject.
+        // Unwrap PSObject — sauf si le BaseObject est un PSCustomObject scalaire.
         // Sur une session PS distante, Select-Object retourne des PSCustomObject dont
         // PSCustomObject.ToString() = "" mais PSObject.ToString() = la vraie valeur Exchange.
+        // Exception : si le BaseObject est une collection (IEnumerable), on l'unwrappe quand même
+        // pour que le branch IEnumerable ci-dessous puisse itérer dessus.
         if (value is PSObject psObj)
         {
             var baseObj = psObj.BaseObject;
-            if (baseObj != null && baseObj is not PSCustomObject)
-                value = baseObj;
-            // Sinon : garder le PSObject pour que nested.ToString() retourne la vraie valeur
+            if (baseObj == null)
+            {
+                // rien à faire, on laisse value = PSObject
+            }
+            else if (baseObj is System.Collections.IEnumerable && baseObj is not string)
+            {
+                value = baseObj;   // collection → unwrapper pour itérer
+            }
+            else if (baseObj is not PSCustomObject)
+            {
+                value = baseObj;   // type .NET réel → unwrapper (string, DateTime, enum, etc.)
+            }
+            // Sinon (PSCustomObject scalaire) : garder le PSObject pour que nested.ToString()
+            // retourne la vraie valeur Exchange (ex: "TLS-EXCHANGE", "2 GB (2,147...)")
         }
 
         // Types primitifs directement sérialisables → retourner tel quel

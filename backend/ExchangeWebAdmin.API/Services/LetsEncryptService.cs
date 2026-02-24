@@ -172,6 +172,9 @@ public class LetsEncryptService
 
         _logger.LogInformation("✅ Validation challenges ACME pour orderId={OrderId}", orderId);
 
+        // Wait for DNS propagation before notifying LE — avoids "Fail to finalize" on first attempt
+        await WaitForDnsPropagationAsync(state.Challenges, TimeSpan.FromMinutes(5), TimeSpan.FromSeconds(15));
+
         // Validate each challenge
         foreach (var challenge in state.Challenges)
         {
@@ -485,6 +488,85 @@ public class LetsEncryptService
         {
             File.Delete(tempScript);
         }
+    }
+
+    /// <summary>
+    /// Poll Google DNS-over-HTTPS until all auto-created TXT records are visible from the internet,
+    /// or until <paramref name="timeout"/> is reached (non-fatal — we try anyway).
+    /// This prevents "Fail to finalize order" errors caused by DNS propagation lag.
+    /// </summary>
+    private async Task WaitForDnsPropagationAsync(
+        List<LetsEncryptDnsChallenge> challenges,
+        TimeSpan timeout,
+        TimeSpan pollInterval)
+    {
+        var pending = challenges.Where(c => c.AutoCreated).ToList();
+        if (pending.Count == 0)
+        {
+            _logger.LogInformation("⏩ Aucun record TXT auto-créé — pas de polling DNS propagation");
+            return;
+        }
+
+        _logger.LogInformation("⏳ Attente propagation DNS ({Count} record(s) TXT) — timeout {Min} min",
+            pending.Count, (int)timeout.TotalMinutes);
+
+        using var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+        http.DefaultRequestHeaders.Add("Accept", "application/dns-json");
+
+        var deadline = DateTime.UtcNow.Add(timeout);
+        while (DateTime.UtcNow < deadline)
+        {
+            var allVisible = true;
+            foreach (var challenge in pending)
+            {
+                try
+                {
+                    var url = $"https://dns.google/resolve?name={Uri.EscapeDataString(challenge.FullName)}&type=TXT";
+                    var json = await http.GetStringAsync(url);
+                    var doc  = System.Text.Json.JsonDocument.Parse(json);
+
+                    var found = false;
+                    if (doc.RootElement.TryGetProperty("Answer", out var answers)
+                        && answers.ValueKind == System.Text.Json.JsonValueKind.Array)
+                    {
+                        foreach (var record in answers.EnumerateArray())
+                        {
+                            if (record.TryGetProperty("data", out var data))
+                            {
+                                var txt = data.GetString()?.Trim('"') ?? "";
+                                if (txt == challenge.TxtValue) { found = true; break; }
+                            }
+                        }
+                    }
+
+                    if (!found)
+                    {
+                        allVisible = false;
+                        _logger.LogDebug("⏳ {Name} pas encore visible ({Val})", challenge.FullName, challenge.TxtValue);
+                    }
+                    else
+                    {
+                        _logger.LogDebug("✅ {Name} visible dans Google DNS", challenge.FullName);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning("DoH check échoué pour {Name}: {Err} — on continue", challenge.FullName, ex.Message);
+                    // Non-fatal: if DoH is unreachable, just proceed rather than blocking forever
+                }
+            }
+
+            if (allVisible)
+            {
+                _logger.LogInformation("✅ Tous les TXT sont propagés — lancement validation ACME");
+                return;
+            }
+
+            await Task.Delay(pollInterval);
+        }
+
+        _logger.LogWarning("⚠️ Timeout propagation DNS ({Min} min) — tentative de validation quand même",
+            (int)timeout.TotalMinutes);
     }
 
     /// <summary>

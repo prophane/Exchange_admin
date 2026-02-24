@@ -381,7 +381,7 @@ public class OrganizationService
 
     public async Task<List<Dictionary<string, object>>> GetDatabaseAvailabilityGroupsAsync() =>
         await SafeListAsync(
-            @"Get-DatabaseAvailabilityGroup | Select-Object Name, WitnessServer, WitnessDirectory, OperationalServers, WhenCreated",
+            @"Get-DatabaseAvailabilityGroup -Status | Select-Object Name, WitnessServer, WitnessDirectory, OperationalServers, Servers, WhenCreated",
             "Get-DatabaseAvailabilityGroup");
 
     public async Task CreateDatabaseAvailabilityGroupAsync(string name, string witnessServer, string witnessDirectory)
