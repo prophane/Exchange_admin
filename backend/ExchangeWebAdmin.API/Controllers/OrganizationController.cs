@@ -564,19 +564,48 @@ public record UpdateDagRequest(string? WitnessServer, string? WitnessDirectory);
 public record CreateRoleGroupRequest(string Name, string? Description);
 public record UpdateRoleGroupRequest(string? Description);
 public record UpdateOwaPolicyRequest(
+    // Communication
     bool? InstantMessagingEnabled,
     bool? TextMessagingEnabled,
     bool? ActiveSyncIntegrationEnabled,
     bool? ContactsEnabled,
+    // Informations
     bool? JournalEnabled,
+    bool? NotesEnabled,
+    bool? RemindersAndNotificationsEnabled,
+    // Sécurité
     bool? ChangePasswordEnabled,
     bool? JunkEmailEnabled,
+    bool? SMimeEnabled,
+    bool? IRMEnabled,
+    bool? DisplayPhotosEnabled,
+    bool? SetPhotoEnabled,
+    // Expérience utilisateur
     bool? ThemeSelectionEnabled,
     bool? PremiumClientEnabled,
-    bool? WeatherEnabled,
-    bool? PlacesEnabled,
-    bool? LocalEventsEnabled,
-    bool? InterestingCalendarsEnabled,
+    bool? SpellCheckerEnabled,
+    // Carnet d'adresses
+    bool? AllAddressListsEnabled,
+    bool? GlobalAddressListEnabled,
+    bool? PublicFoldersEnabled,
+    // Organisation et fonctionnalités
     bool? CalendarEnabled,
-    bool? TasksEnabled
+    bool? TasksEnabled,
+    bool? RulesEnabled,
+    bool? SignaturesEnabled,
+    bool? DelegateAccessEnabled,
+    bool? RecoverDeletedItemsEnabled,
+    bool? SearchFoldersEnabled,
+    bool? WacEditingEnabled,
+    // Accès fichiers
+    bool? DirectFileAccessOnPublicComputersEnabled,
+    bool? DirectFileAccessOnPrivateComputersEnabled,
+    bool? WebReadyDocumentViewingOnPublicComputersEnabled,
+    bool? WebReadyDocumentViewingOnPrivateComputersEnabled,
+    bool? WacViewingOnPublicComputersEnabled,
+    bool? WacViewingOnPrivateComputersEnabled,
+    bool? WSSAccessOnPublicComputersEnabled,
+    bool? UNCAccessOnPublicComputersEnabled,
+    // Enum
+    string? ActionForUnknownFileAndMIMETypes
 );

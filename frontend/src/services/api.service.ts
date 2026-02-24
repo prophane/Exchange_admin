@@ -620,13 +620,38 @@ class ExchangeApiService {
   }
 
   async updateOwaMailboxPolicy(name: string, fields: {
+    // Communication
     instantMessagingEnabled?: boolean; textMessagingEnabled?: boolean;
     activeSyncIntegrationEnabled?: boolean; contactsEnabled?: boolean;
-    journalEnabled?: boolean; changePasswordEnabled?: boolean; junkEmailEnabled?: boolean;
+    // Informations
+    journalEnabled?: boolean; notesEnabled?: boolean;
+    remindersAndNotificationsEnabled?: boolean;
+    // Sécurité
+    changePasswordEnabled?: boolean; junkEmailEnabled?: boolean;
+    sMimeEnabled?: boolean; iRMEnabled?: boolean;
+    displayPhotosEnabled?: boolean; setPhotoEnabled?: boolean;
+    // Expérience
     themeSelectionEnabled?: boolean; premiumClientEnabled?: boolean;
-    weatherEnabled?: boolean; placesEnabled?: boolean;
-    localEventsEnabled?: boolean; interestingCalendarsEnabled?: boolean;
+    spellCheckerEnabled?: boolean;
+    // Carnet d'adresses
+    allAddressListsEnabled?: boolean; globalAddressListEnabled?: boolean;
+    publicFoldersEnabled?: boolean;
+    // Organisation
     calendarEnabled?: boolean; tasksEnabled?: boolean;
+    rulesEnabled?: boolean; signaturesEnabled?: boolean;
+    delegateAccessEnabled?: boolean; recoverDeletedItemsEnabled?: boolean;
+    searchFoldersEnabled?: boolean; wacEditingEnabled?: boolean;
+    // Accès fichiers
+    directFileAccessOnPublicComputersEnabled?: boolean;
+    directFileAccessOnPrivateComputersEnabled?: boolean;
+    webReadyDocumentViewingOnPublicComputersEnabled?: boolean;
+    webReadyDocumentViewingOnPrivateComputersEnabled?: boolean;
+    wacViewingOnPublicComputersEnabled?: boolean;
+    wacViewingOnPrivateComputersEnabled?: boolean;
+    wSSAccessOnPublicComputersEnabled?: boolean;
+    uNCAccessOnPublicComputersEnabled?: boolean;
+    // Enum
+    actionForUnknownFileAndMIMETypes?: string;
   }): Promise<void> {
     await this.api.put(`/organization/owa-policies/${encodeURIComponent(name)}`, fields);
   }

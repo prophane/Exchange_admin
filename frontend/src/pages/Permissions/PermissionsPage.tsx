@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Table, Typography, Tag, message, Tabs, Button, Modal, Form, Input, Space, Popconfirm, Tooltip, Divider, Switch, Drawer } from 'antd';
+import { Table, Typography, Tag, message, Tabs, Button, Modal, Form, Input, Space, Popconfirm, Tooltip, Divider, Switch, Drawer, Select } from 'antd';
 import { ReloadOutlined, LockOutlined, PlusOutlined, EditOutlined, DeleteOutlined, TeamOutlined, MinusCircleOutlined, UserAddOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { exchangeApi } from '../../services/api.service';
@@ -329,21 +329,51 @@ function OwaTab() {
   const openEdit = (row: any) => {
     setEditTarget(row);
     editForm.setFieldsValue({
+      // Communication
       instantMessagingEnabled:      !!row.InstantMessagingEnabled,
       textMessagingEnabled:         !!row.TextMessagingEnabled,
       activeSyncIntegrationEnabled: !!row.ActiveSyncIntegrationEnabled,
       contactsEnabled:              !!row.ContactsEnabled,
+      // Informations
       journalEnabled:               !!row.JournalEnabled,
+      notesEnabled:                 !!row.NotesEnabled,
+      remindersAndNotificationsEnabled: !!row.RemindersAndNotificationsEnabled,
+      // Sécurité
       changePasswordEnabled:        !!row.ChangePasswordEnabled,
       junkEmailEnabled:             !!row.JunkEmailEnabled,
+      sMimeEnabled:                 !!row.SMimeEnabled,
+      iRMEnabled:                   !!row.IRMEnabled,
+      displayPhotosEnabled:         !!row.DisplayPhotosEnabled,
+      setPhotoEnabled:              !!row.SetPhotoEnabled,
+      // Expérience utilisateur
       themeSelectionEnabled:        !!row.ThemeSelectionEnabled,
       premiumClientEnabled:         !!row.PremiumClientEnabled,
-      weatherEnabled:               !!row.WeatherEnabled,
-      placesEnabled:                !!row.PlacesEnabled,
-      localEventsEnabled:           !!row.LocalEventsEnabled,
-      interestingCalendarsEnabled:  !!row.InterestingCalendarsEnabled,
+      spellCheckerEnabled:          !!row.SpellCheckerEnabled,
+      // Carnet d'adresses
+      allAddressListsEnabled:       !!row.AllAddressListsEnabled,
+      globalAddressListEnabled:     !!row.GlobalAddressListEnabled,
+      publicFoldersEnabled:         !!row.PublicFoldersEnabled,
+      // Organisation et fonctionnalités
       calendarEnabled:              !!row.CalendarEnabled,
       tasksEnabled:                 !!row.TasksEnabled,
+      rulesEnabled:                 !!row.RulesEnabled,
+      signaturesEnabled:            !!row.SignaturesEnabled,
+      delegateAccessEnabled:        !!row.DelegateAccessEnabled,
+      recoverDeletedItemsEnabled:   !!row.RecoverDeletedItemsEnabled,
+      searchFoldersEnabled:         !!row.SearchFoldersEnabled,
+      wacEditingEnabled:            !!row.WacEditingEnabled,
+      // Accès fichiers
+      directFileAccessOnPublicComputersEnabled:  !!row.DirectFileAccessOnPublicComputersEnabled,
+      directFileAccessOnPrivateComputersEnabled: !!row.DirectFileAccessOnPrivateComputersEnabled,
+      webReadyDocumentViewingOnPublicComputersEnabled:  !!row.WebReadyDocumentViewingOnPublicComputersEnabled,
+      webReadyDocumentViewingOnPrivateComputersEnabled: !!row.WebReadyDocumentViewingOnPrivateComputersEnabled,
+      wacViewingOnPublicComputersEnabled:  !!row.WacViewingOnPublicComputersEnabled,
+      wacViewingOnPrivateComputersEnabled: !!row.WacViewingOnPrivateComputersEnabled,
+      wSSAccessOnPublicComputersEnabled:   !!row.WSSAccessOnPublicComputersEnabled,
+      uNCAccessOnPublicComputersEnabled:   !!row.UNCAccessOnPublicComputersEnabled,
+      // Enum
+      actionForUnknownFileAndMIMETypes: row.ActionForUnknownFileAndMIMETypes != null
+        ? String(row.ActionForUnknownFileAndMIMETypes) : undefined,
     });
     setDrawerOpen(true);
   };
@@ -403,6 +433,7 @@ function OwaTab() {
       >
         <Form form={editForm} layout="vertical">
 
+          {/* ── Communication ──────────────────────────────────────────── */}
           <Divider orientation="left" orientationMargin={0}
             style={{ fontSize: 12, color: '#555', fontWeight: 600, margin: '0 0 4px' }}>
             📬 Communication
@@ -416,22 +447,37 @@ function OwaTab() {
           <SettingRow name="contactsEnabled" label="Contacts"
             description="Autorise l'accès au carnet d'adresses personnel." />
 
+          {/* ── Informations ───────────────────────────────────────────── */}
           <Divider orientation="left" orientationMargin={0}
             style={{ fontSize: 12, color: '#555', fontWeight: 600, margin: '16px 0 4px' }}>
-            📋 Informations
+            📋 Informations &amp; notes
           </Divider>
           <SettingRow name="journalEnabled" label="Journalisation"
             description="Permet d'accéder au dossier Journal dans OWA." />
+          <SettingRow name="notesEnabled" label="Notes"
+            description="Autorise l'accès au module Notes dans OWA." />
+          <SettingRow name="remindersAndNotificationsEnabled" label="Rappels et notifications"
+            description="Active les alertes et rappels dans OWA." />
 
+          {/* ── Sécurité ───────────────────────────────────────────────── */}
           <Divider orientation="left" orientationMargin={0}
             style={{ fontSize: 12, color: '#555', fontWeight: 600, margin: '16px 0 4px' }}>
-            🔒 Sécurité
+            🔒 Sécurité &amp; confidentialité
           </Divider>
           <SettingRow name="changePasswordEnabled" label="Changer le mot de passe"
-            description="Permet à l'utilisateur de changer son mot de passe directement depuis OWA." />
+            description="Permet à l'utilisateur de changer son mot de passe depuis OWA." />
           <SettingRow name="junkEmailEnabled" label="Filtrage courrier indésirable"
             description="Affiche les options de gestion du courrier indésirable dans OWA." />
+          <SettingRow name="sMimeEnabled" label="S/MIME"
+            description="Active la prise en charge de S/MIME pour le chiffrement et les signatures." />
+          <SettingRow name="iRMEnabled" label="IRM (Gestion des droits)"
+            description="Active la protection IRM (Information Rights Management)." />
+          <SettingRow name="displayPhotosEnabled" label="Affichage des photos"
+            description="Affiche les photos de profil des contacts dans OWA." />
+          <SettingRow name="setPhotoEnabled" label="Modifier sa photo"
+            description="Permet à l'utilisateur de changer sa photo de profil depuis OWA." />
 
+          {/* ── Expérience utilisateur ─────────────────────────────────── */}
           <Divider orientation="left" orientationMargin={0}
             style={{ fontSize: 12, color: '#555', fontWeight: 600, margin: '16px 0 4px' }}>
             ✨ Expérience utilisateur
@@ -440,23 +486,103 @@ function OwaTab() {
             description="Permet à l'utilisateur de personnaliser le thème visuel d'OWA." />
           <SettingRow name="premiumClientEnabled" label="Client premium"
             description="Active la version complète d'OWA (désactiver force la version allégée)." />
-          <SettingRow name="weatherEnabled" label="Météo"
-            description="Affiche la météo dans le calendrier OWA." />
-          <SettingRow name="placesEnabled" label="Lieux"
-            description="Suggère des lieux lors de la création d'événements de calendrier." />
-          <SettingRow name="localEventsEnabled" label="Événements locaux"
-            description="Affiche des suggestions d'événements locaux dans le calendrier." />
-          <SettingRow name="interestingCalendarsEnabled" label="Calendriers suggérés"
-            description="Propose des calendriers d'intérêt général (sports, fêtes, etc.)." />
+          <SettingRow name="spellCheckerEnabled" label="Correcteur orthographique"
+            description="Active le correcteur orthographique dans OWA." />
 
+          {/* ── Carnet d'adresses ──────────────────────────────────────── */}
           <Divider orientation="left" orientationMargin={0}
             style={{ fontSize: 12, color: '#555', fontWeight: 600, margin: '16px 0 4px' }}>
-            📅 Agenda &amp; organisation
+            📇 Carnet d'adresses
+          </Divider>
+          <SettingRow name="allAddressListsEnabled" label="Toutes les listes d'adresses"
+            description="Permet l'accès à toutes les listes d'adresses dans le carnet OWA." />
+          <SettingRow name="globalAddressListEnabled" label="Liste d'adresses globale"
+            description="Donne accès à la liste d'adresses globale (GAL) de l'organisation." />
+          <SettingRow name="publicFoldersEnabled" label="Dossiers publics"
+            description="Autorise l'accès aux dossiers publics Exchange dans OWA." />
+
+          {/* ── Organisation et fonctionnalités ───────────────────────── */}
+          <Divider orientation="left" orientationMargin={0}
+            style={{ fontSize: 12, color: '#555', fontWeight: 600, margin: '16px 0 4px' }}>
+            🗂️ Organisation &amp; fonctionnalités
           </Divider>
           <SettingRow name="calendarEnabled" label="Calendrier"
             description="Autorise l'accès au module Calendrier dans OWA." />
           <SettingRow name="tasksEnabled" label="Tâches"
             description="Autorise l'accès au module Tâches dans OWA." />
+          <SettingRow name="rulesEnabled" label="Règles de messagerie"
+            description="Permet de créer et gérer des règles automatiques dans OWA." />
+          <SettingRow name="signaturesEnabled" label="Signatures"
+            description="Permet de créer et utiliser des signatures électroniques dans OWA." />
+          <SettingRow name="delegateAccessEnabled" label="Accès délégué"
+            description="Autorise la gestion de boîtes déléguées depuis OWA." />
+          <SettingRow name="recoverDeletedItemsEnabled" label="Récupérer les éléments supprimés"
+            description="Permet de récupérer des messages supprimés depuis la corbeille OWA." />
+          <SettingRow name="searchFoldersEnabled" label="Dossiers de recherche"
+            description="Autorise l'accès aux dossiers de recherche dans OWA." />
+          <SettingRow name="wacEditingEnabled" label="Édition Office Online"
+            description="Permet d'éditer les pièces jointes Office directement dans OWA via WAC." />
+
+          {/* ── Accès fichiers ─────────────────────────────────────────── */}
+          <Divider orientation="left" orientationMargin={0}
+            style={{ fontSize: 12, color: '#555', fontWeight: 600, margin: '16px 0 4px' }}>
+            📁 Accès aux fichiers
+          </Divider>
+          <SettingRow name="directFileAccessOnPublicComputersEnabled" label="Accès direct (ordi. public)"
+            description="Autorise l'ouverture directe de pièces jointes sur un ordinateur public." />
+          <SettingRow name="directFileAccessOnPrivateComputersEnabled" label="Accès direct (ordi. privé)"
+            description="Autorise l'ouverture directe de pièces jointes sur un ordinateur privé." />
+          <SettingRow name="webReadyDocumentViewingOnPublicComputersEnabled" label="Affichage Web (ordi. public)"
+            description="Active la visionneuse Web Office pour les pièces jointes sur ordi. public." />
+          <SettingRow name="webReadyDocumentViewingOnPrivateComputersEnabled" label="Affichage Web (ordi. privé)"
+            description="Active la visionneuse Web Office pour les pièces jointes sur ordi. privé." />
+          <SettingRow name="wacViewingOnPublicComputersEnabled" label="Lecture WAC (ordi. public)"
+            description="Permet la lecture des documents Office via WAC sur ordinateur public." />
+          <SettingRow name="wacViewingOnPrivateComputersEnabled" label="Lecture WAC (ordi. privé)"
+            description="Permet la lecture des documents Office via WAC sur ordinateur privé." />
+          <SettingRow name="wSSAccessOnPublicComputersEnabled" label="Accès UNC/WSS (ordi. public)"
+            description="Autorise l'accès aux partages Windows/SharePoint sur ordinateur public." />
+          <SettingRow name="uNCAccessOnPublicComputersEnabled" label="Accès UNC (ordi. public)"
+            description="Autorise l'accès UNC direct aux partages réseau sur ordinateur public." />
+
+          {/* ── Fichiers inconnus ──────────────────────────────────────── */}
+          <Divider orientation="left" orientationMargin={0}
+            style={{ fontSize: 12, color: '#555', fontWeight: 600, margin: '16px 0 4px' }}>
+            ⚙️ Fichiers de type inconnu
+          </Divider>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #f0f0f0' }}>
+            <div style={{ flex: 1, paddingRight: 16 }}>
+              <div style={{ fontWeight: 500, fontSize: 13 }}>Action pour MIME inconnu</div>
+              <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>Comportement d'OWA pour les fichiers et types MIME non reconnus.</div>
+            </div>
+            <Form.Item name="actionForUnknownFileAndMIMETypes" noStyle>
+              <Select style={{ width: 130 }} size="small" options={[
+                { value: 'ForceSave', label: 'Force Save' },
+                { value: 'Allow',     label: 'Autoriser' },
+                { value: 'Block',     label: 'Bloquer' },
+              ]} />
+            </Form.Item>
+          </div>
+
+          {/* ── Paramètres en lecture seule (non modifiables sur Exchange SE) ── */}
+          <Divider orientation="left" orientationMargin={0}
+            style={{ fontSize: 12, color: '#aaa', fontWeight: 500, margin: '16px 0 4px' }}>
+            🔍 Lecture seule (version Exchange)
+          </Divider>
+          {[
+            { key: 'WeatherEnabled',              label: 'Météo',                  desc: 'Affichage météo dans le calendrier OWA.' },
+            { key: 'PlacesEnabled',               label: 'Lieux',                  desc: 'Suggestions de lieux lors de la création d\'événements.' },
+            { key: 'LocalEventsEnabled',          label: 'Événements locaux',      desc: 'Suggestions d\'événements locaux dans le calendrier.' },
+            { key: 'InterestingCalendarsEnabled', label: 'Calendriers suggérés',   desc: 'Propose des calendriers d\'intérêt (sports, fêtes, etc.).' },
+          ].map(({ key, label, desc }) => (
+            <div key={key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f0f0f0', opacity: 0.6 }}>
+              <div style={{ flex: 1, paddingRight: 16 }}>
+                <div style={{ fontWeight: 500, fontSize: 13, color: '#888' }}>{label}</div>
+                <div style={{ fontSize: 12, color: '#bbb', marginTop: 2 }}>{desc}</div>
+              </div>
+              <Tag color="default" style={{ fontSize: 11 }}>Non modifiable</Tag>
+            </div>
+          ))}
 
         </Form>
       </Drawer>

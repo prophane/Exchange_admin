@@ -385,36 +385,72 @@ public class OrganizationService
             @"Get-OwaMailboxPolicy | Select-Object Name, IsDefault,
               InstantMessagingEnabled, TextMessagingEnabled, ActiveSyncIntegrationEnabled,
               ContactsEnabled, AllowOfflineOn,
-              JournalEnabled,
+              JournalEnabled, NotesEnabled, RemindersAndNotificationsEnabled,
               ChangePasswordEnabled, JunkEmailEnabled,
-              ThemeSelectionEnabled, PremiumClientEnabled,
+              SMimeEnabled, IRMEnabled, DisplayPhotosEnabled, SetPhotoEnabled,
+              ThemeSelectionEnabled, PremiumClientEnabled, SpellCheckerEnabled,
+              AllAddressListsEnabled, GlobalAddressListEnabled, PublicFoldersEnabled,
+              CalendarEnabled, TasksEnabled, RulesEnabled, SignaturesEnabled,
+              DelegateAccessEnabled, RecoverDeletedItemsEnabled, SearchFoldersEnabled,
+              WacEditingEnabled,
               WeatherEnabled, PlacesEnabled, LocalEventsEnabled, InterestingCalendarsEnabled,
-              CalendarEnabled, TasksEnabled,
               ActionForUnknownFileAndMIMETypes,
               DirectFileAccessOnPublicComputersEnabled, DirectFileAccessOnPrivateComputersEnabled,
+              WebReadyDocumentViewingOnPublicComputersEnabled, WebReadyDocumentViewingOnPrivateComputersEnabled,
               WacViewingOnPublicComputersEnabled, WacViewingOnPrivateComputersEnabled,
+              WSSAccessOnPublicComputersEnabled, UNCAccessOnPublicComputersEnabled,
               WhenChanged",
             "Get-OwaMailboxPolicy");
 
     public async Task UpdateOwaMailboxPolicyAsync(string name, UpdateOwaPolicyRequest f)
     {
         var p  = new List<string> { $"-Identity '{name.Replace("'", "''")}'"};
-        void B(string param, bool? v) { if (v.HasValue) p.Add($"{param}:{(v.Value ? "$true" : "$false")}"); }
-        B("-InstantMessagingEnabled",    f.InstantMessagingEnabled);
-        B("-TextMessagingEnabled",       f.TextMessagingEnabled);
-        B("-ActiveSyncIntegrationEnabled", f.ActiveSyncIntegrationEnabled);
-        B("-ContactsEnabled",            f.ContactsEnabled);
-        B("-JournalEnabled",             f.JournalEnabled);
-        B("-ChangePasswordEnabled",      f.ChangePasswordEnabled);
-        B("-JunkEmailEnabled",           f.JunkEmailEnabled);
-        B("-ThemeSelectionEnabled",      f.ThemeSelectionEnabled);
-        B("-PremiumClientEnabled",       f.PremiumClientEnabled);
-        B("-WeatherEnabled",             f.WeatherEnabled);
-        B("-PlacesEnabled",              f.PlacesEnabled);
-        B("-LocalEventsEnabled",         f.LocalEventsEnabled);
-        B("-InterestingCalendarsEnabled",f.InterestingCalendarsEnabled);
-        B("-CalendarEnabled",            f.CalendarEnabled);
-        B("-TasksEnabled",               f.TasksEnabled);
+        void B(string param, bool? v) { if (v.HasValue) p.Add($"-{param}:{(v.Value ? "$true" : "$false")}"); }
+        // Communication
+        B("InstantMessagingEnabled",    f.InstantMessagingEnabled);
+        B("TextMessagingEnabled",       f.TextMessagingEnabled);
+        B("ActiveSyncIntegrationEnabled", f.ActiveSyncIntegrationEnabled);
+        B("ContactsEnabled",            f.ContactsEnabled);
+        // Informations
+        B("JournalEnabled",             f.JournalEnabled);
+        B("NotesEnabled",               f.NotesEnabled);
+        B("RemindersAndNotificationsEnabled", f.RemindersAndNotificationsEnabled);
+        // Sécurité
+        B("ChangePasswordEnabled",      f.ChangePasswordEnabled);
+        B("JunkEmailEnabled",           f.JunkEmailEnabled);
+        B("SMimeEnabled",               f.SMimeEnabled);
+        B("IRMEnabled",                 f.IRMEnabled);
+        B("DisplayPhotosEnabled",       f.DisplayPhotosEnabled);
+        B("SetPhotoEnabled",            f.SetPhotoEnabled);
+        // Expérience utilisateur
+        B("ThemeSelectionEnabled",      f.ThemeSelectionEnabled);
+        B("PremiumClientEnabled",       f.PremiumClientEnabled);
+        B("SpellCheckerEnabled",        f.SpellCheckerEnabled);
+        // Carnet d'adresses
+        B("AllAddressListsEnabled",     f.AllAddressListsEnabled);
+        B("GlobalAddressListEnabled",   f.GlobalAddressListEnabled);
+        B("PublicFoldersEnabled",       f.PublicFoldersEnabled);
+        // Organisation et fonctionnalités
+        B("CalendarEnabled",            f.CalendarEnabled);
+        B("TasksEnabled",               f.TasksEnabled);
+        B("RulesEnabled",               f.RulesEnabled);
+        B("SignaturesEnabled",          f.SignaturesEnabled);
+        B("DelegateAccessEnabled",      f.DelegateAccessEnabled);
+        B("RecoverDeletedItemsEnabled", f.RecoverDeletedItemsEnabled);
+        B("SearchFoldersEnabled",       f.SearchFoldersEnabled);
+        B("WacEditingEnabled",          f.WacEditingEnabled);
+        // Accès fichiers
+        B("DirectFileAccessOnPublicComputersEnabled",  f.DirectFileAccessOnPublicComputersEnabled);
+        B("DirectFileAccessOnPrivateComputersEnabled", f.DirectFileAccessOnPrivateComputersEnabled);
+        B("WebReadyDocumentViewingOnPublicComputersEnabled",  f.WebReadyDocumentViewingOnPublicComputersEnabled);
+        B("WebReadyDocumentViewingOnPrivateComputersEnabled", f.WebReadyDocumentViewingOnPrivateComputersEnabled);
+        B("WacViewingOnPublicComputersEnabled",  f.WacViewingOnPublicComputersEnabled);
+        B("WacViewingOnPrivateComputersEnabled", f.WacViewingOnPrivateComputersEnabled);
+        B("WSSAccessOnPublicComputersEnabled",   f.WSSAccessOnPublicComputersEnabled);
+        B("UNCAccessOnPublicComputersEnabled",   f.UNCAccessOnPublicComputersEnabled);
+        // Enum
+        if (!string.IsNullOrWhiteSpace(f.ActionForUnknownFileAndMIMETypes))
+            p.Add($"-ActionForUnknownFileAndMIMETypes {f.ActionForUnknownFileAndMIMETypes}");
         await _ps.ExecuteScriptAsync($"Set-OwaMailboxPolicy {string.Join(" ", p)}");
     }
 
