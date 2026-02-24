@@ -74,17 +74,16 @@ function RetentionTagsTab() {
     '6': { label: 'Vers archive',        color: 'blue'    },
   };
 
-  // Convertit un EnhancedTimeSpan Exchange ("365.00:00:00") en texte lisible
+  // Convertit AgeLimitForRetention : arrive en jours (int) ou en "365.00:00:00" (fallback)
   const formatAgeLimit = (v: any): string => {
-    if (!v || v === 'Illimitée') return 'Illimitée';
-    const s = String(v);
-    // Format "d.HH:mm:ss" ou "d"
-    const days = parseInt(s.split('.')[0], 10);
-    if (isNaN(days)) return s;
-    if (days >= 365 * 5) return `${Math.round(days / 365)} ans`;
-    if (days >= 365)     return `${Math.round(days / 365)} an${Math.round(days/365) > 1 ? 's' : ''}`;
-    if (days >= 30)      return `${Math.round(days / 30)} mois`;
-    return `${days} jour${days > 1 ? 's' : ''}`;
+    if (v === null || v === undefined || v === '' || v === 'Unlimited') return '-';
+    // Cas backend normalisé : entier (nombre de jours)
+    const num = typeof v === 'number' ? v : parseInt(String(v).split('.')[0], 10);
+    if (isNaN(num) || num <= 0) return String(v);
+    if (num >= 365 * 5) return `${Math.round(num / 365)} ans`;
+    if (num >= 365)     return `${Math.round(num / 365)} an`;
+    if (num >= 30)      return `${Math.round(num / 30)} mois`;
+    return `${num} jour${num > 1 ? 's' : ''}`;
   };
 
   const resolveType = (v: any): string => {

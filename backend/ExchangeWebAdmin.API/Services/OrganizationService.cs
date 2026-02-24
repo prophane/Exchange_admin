@@ -231,10 +231,53 @@ public class OrganizationService
             @"Get-RetentionPolicy | Select-Object Name, IsDefault, WhenChanged",
             "Get-RetentionPolicy");
 
-    public async Task<List<Dictionary<string, object>>> GetRetentionPolicyTagsAsync() =>
-        await SafeListAsync(
+    // Mapping des enums Exchange (entiers) → noms lisibles
+    private static readonly Dictionary<string, string> _elcFolderTypeMap = new()
+    {
+        ["0"] = "All", ["1"] = "Calendar", ["2"] = "Contacts", ["3"] = "DeletedItems",
+        ["4"] = "Drafts", ["5"] = "Inbox", ["6"] = "JunkEmail", ["7"] = "Journal",
+        ["8"] = "Notes", ["9"] = "Outbox", ["10"] = "SentItems", ["11"] = "Tasks",
+        ["12"] = "All", ["17"] = "Personal", ["18"] = "RecoverableItems",
+    };
+    private static readonly Dictionary<string, string> _retentionActionMap = new()
+    {
+        ["0"] = "None", ["1"] = "MoveToDeletedItems", ["2"] = "MoveToFolder",
+        ["3"] = "DeleteAndAllowRecovery", ["4"] = "PermanentlyDelete",
+        ["5"] = "MarkAsPastRetentionLimit", ["6"] = "MoveToArchive",
+    };
+
+    private static void NormalizeRetentionTag(Dictionary<string, object> row)
+    {
+        if (row.TryGetValue("Type", out var t))
+        {
+            var s = t?.ToString() ?? "";
+            if (_elcFolderTypeMap.TryGetValue(s, out var name)) row["Type"] = name;
+        }
+        if (row.TryGetValue("RetentionAction", out var a))
+        {
+            var s = a?.ToString() ?? "";
+            if (_retentionActionMap.TryGetValue(s, out var name)) row["RetentionAction"] = name;
+        }
+        // Convertir AgeLimitForRetention (TimeSpan "365.00:00:00") → jours entiers pour le frontend
+        if (row.TryGetValue("AgeLimitForRetention", out var age))
+        {
+            var s = age?.ToString() ?? "";
+            if (s == "Unlimited" || s == "") { row["AgeLimitForRetention"] = null!; }
+            else if (TimeSpan.TryParse(s, out var ts))
+            {
+                row["AgeLimitForRetention"] = (int)ts.TotalDays;
+            }
+        }
+    }
+
+    public async Task<List<Dictionary<string, object>>> GetRetentionPolicyTagsAsync()
+    {
+        var list = await SafeListAsync(
             @"Get-RetentionPolicyTag | Select-Object Name, Type, AgeLimitForRetention, RetentionAction, MessageClass, IsDefaultTag",
             "Get-RetentionPolicyTag");
+        foreach (var row in list) NormalizeRetentionTag(row);
+        return list;
+    }
 
     // =========================================================================
     // UTILISATEURS — Politiques d'attribution de rôles
