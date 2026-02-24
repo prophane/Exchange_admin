@@ -38,16 +38,52 @@ if "%choice%"=="3" goto end
 
 :auto
 echo.
-echo 🚀 Lancement automatique...
+echo Lancement automatique...
 echo.
 
-REM Démarrer backend dans nouvelle fenêtre
+REM --- Restore NuGet si bin/ absent ---
+if not exist "%~dp0backend\ExchangeWebAdmin.API\bin" (
+    echo [1/4] Premier lancement - Restauration NuGet (dotnet restore)...
+    pushd "%~dp0backend\ExchangeWebAdmin.API"
+    dotnet restore
+    if %ERRORLEVEL% NEQ 0 (
+        echo ERREUR: dotnet restore a echoue. Verifiez que .NET SDK est installe.
+        popd
+        pause
+        exit /b 1
+    )
+    popd
+    echo [1/4] OK - Packages NuGet restaures.
+else
+    echo [1/4] Packages NuGet deja presents.
+)
+
+REM --- npm install si node_modules absent ---
+if not exist "%~dp0frontend\node_modules" (
+    echo [2/4] Premier lancement - Installation npm (npm install)...
+    pushd "%~dp0frontend"
+    npm install
+    if %ERRORLEVEL% NEQ 0 (
+        echo ERREUR: npm install a echoue. Verifiez que Node.js est installe.
+        popd
+        pause
+        exit /b 1
+    )
+    popd
+    echo [2/4] OK - Dependances npm installees.
+else
+    echo [2/4] node_modules deja present.
+)
+
+echo.
+
+REM [3/4] Démarrer backend dans nouvelle fenêtre
 start "Exchange Web Admin - Backend API" powershell -NoExit -Command "cd '%~dp0backend\ExchangeWebAdmin.API'; Write-Host 'Demarrage Backend API...' -ForegroundColor Cyan; dotnet run --urls 'http://localhost:5000'"
 
 REM Attendre 5 secondes
 timeout /t 5 /nobreak >nul
 
-REM Démarrer frontend dans nouvelle fenêtre
+REM [4/4] Démarrer frontend dans nouvelle fenêtre
 start "Exchange Web Admin - Frontend React" powershell -NoExit -Command "cd '%~dp0frontend'; Write-Host 'Demarrage Frontend React...' -ForegroundColor Cyan; npm run dev"
 
 REM Attendre 8 secondes

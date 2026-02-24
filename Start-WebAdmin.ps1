@@ -37,8 +37,24 @@ try {
 Write-Host "🔧 Étape 2/5: Vérification PowerShellService..." -ForegroundColor Yellow
 Write-Host "✅ Version actuelle utilisée (credentials Exchange intégrés)`n" -ForegroundColor Green
 
-# Étape 3: Lancement Backend API
+# Étape 3: Restore NuGet + Lancement Backend API
 Write-Host "🚀 Étape 3/5: Lancement Backend API..." -ForegroundColor Yellow
+
+$backendDir = "$PSScriptRoot\backend\ExchangeWebAdmin.API"
+$backendBin = "$backendDir\bin"
+if (-not (Test-Path $backendBin)) {
+    Write-Host "   📦 Premier lancement — restauration des packages NuGet..." -ForegroundColor Cyan
+    $restore = Start-Process -FilePath "dotnet" -ArgumentList "restore" `
+        -WorkingDirectory $backendDir -Wait -PassThru -NoNewWindow
+    if ($restore.ExitCode -eq 0) {
+        Write-Host "✅ dotnet restore terminé`n" -ForegroundColor Green
+    } else {
+        Write-Host "❌ dotnet restore échoué (code $($restore.ExitCode)). Vérifiez .NET SDK et la connexion." -ForegroundColor Red
+        pause; exit 1
+    }
+} else {
+    Write-Host "✅ Packages NuGet déjà présents`n" -ForegroundColor Green
+}
 
 # Vérifier si port 5000 déjà utilisé
 $port5000 = (Get-NetTCPConnection -LocalPort 5000 -State Listen -ErrorAction SilentlyContinue)
@@ -48,7 +64,7 @@ if ($port5000) {
     Write-Host "   Lancement automatique du backend en arrière-plan..." -ForegroundColor Cyan
     $backendJob = Start-Process -FilePath "dotnet" `
         -ArgumentList "run --urls http://localhost:5000" `
-        -WorkingDirectory "$PSScriptRoot\backend\ExchangeWebAdmin.API" `
+        -WorkingDirectory $backendDir `
         -PassThru -WindowStyle Normal
     Write-Host "✅ Backend lancé (PID $($backendJob.Id)) — attente démarrage (10s)..." -ForegroundColor Green
     Start-Sleep 10
@@ -86,10 +102,32 @@ if (Test-Path "$frontendDir\\node_modules") {
         }
     }
 } else {
-    Write-Host "   node_modules absent, installation requise. Exécutez d'abord :" -ForegroundColor Yellow
-    Write-Host "   cd $frontendDir" -ForegroundColor White
-    Write-Host "   npm install" -ForegroundColor White
-    Write-Host "   npm run dev`n" -ForegroundColor White
+    Write-Host "   📦 Premier lancement — installation des dépendances npm..." -ForegroundColor Cyan
+    $npmPath = Get-Command npm -ErrorAction SilentlyContinue
+    if ($null -eq $npmPath) {
+        Write-Host "❌ npm n'est pas dans le PATH. Installez Node.js puis relancez." -ForegroundColor Red
+        pause; exit 1
+    }
+    $npmInstall = Start-Process -FilePath "npm" -ArgumentList "install" `
+        -WorkingDirectory $frontendDir -Wait -PassThru -NoNewWindow
+    if ($npmInstall.ExitCode -eq 0) {
+        Write-Host "✅ npm install terminé`n" -ForegroundColor Green
+        # Lancer le frontend maintenant que node_modules est présent
+        $npmPath2 = Get-Command npm -ErrorAction SilentlyContinue
+        if ($npmPath2) {
+            try {
+                $frontendCmd = 'cd /d ' + $frontendDir + ' & npm run dev'
+                $startArgs = '/c start "Exchange Web Admin - Frontend" cmd.exe /k "' + $frontendCmd + '"'
+                Start-Process 'cmd.exe' -ArgumentList $startArgs -WindowStyle Normal -ErrorAction Stop
+                Write-Host "✅ Frontend lancé dans une nouvelle fenêtre.`n" -ForegroundColor Green
+            } catch {
+                Write-Host "❌ Échec du lancement : $($_.Exception.Message)" -ForegroundColor Red
+            }
+        }
+    } else {
+        Write-Host "❌ npm install échoué (code $($npmInstall.ExitCode)). Vérifiez la connexion internet." -ForegroundColor Red
+        pause; exit 1
+    }
 }
 
 # Étape 5: Accès Web UI
