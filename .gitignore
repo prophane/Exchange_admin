@@ -1,0 +1,22 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+*.bak
+
+# Node / Frontend
+node_modules/
+dist/
+.vite/
+
+# Secrets & local config
+appsettings.Local.json
+appsettings.Development.json
+
+# OS
+Thumbs.db
+.DS_Store
+
+backend.log
