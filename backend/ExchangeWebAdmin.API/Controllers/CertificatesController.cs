@@ -152,14 +152,14 @@ namespace ExchangeWebAdmin.API.Controllers
         /// Supprime un certificat Exchange par son empreinte.
         /// </summary>
         [HttpDelete("{thumbprint}")]
-        public async Task<IActionResult> DeleteCertificate(string thumbprint)
+        public async Task<IActionResult> DeleteCertificate(string thumbprint, [FromQuery] string? server = null)
         {
             try
             {
                 if (string.IsNullOrWhiteSpace(thumbprint))
                     return BadRequest(new { success = false, error = "Thumbprint requis" });
 
-                await _configService.DeleteCertificateAsync(thumbprint);
+                await _configService.DeleteCertificateAsync(thumbprint, server ?? string.Empty);
                 return Ok(new { success = true });
             }
             catch (Exception ex)

@@ -130,12 +130,14 @@ namespace ExchangeWebAdmin.API.Services
         }
 
         /// <summary>Supprime un certificat Exchange par son empreinte.</summary>
-        public async Task DeleteCertificateAsync(string thumbprint)
+        public async Task DeleteCertificateAsync(string thumbprint, string server)
         {
             var t = thumbprint.Replace("'", "''");
-            _logger.LogInformation("Suppression du certificat {Thumbprint}", thumbprint);
+            var srv = server.Replace("'", "''");
+            var serverArg = string.IsNullOrWhiteSpace(srv) ? "" : $" -Server '{srv}'";
+            _logger.LogInformation("Suppression du certificat {Thumbprint} sur {Server}", thumbprint, server);
             await _psService.ExecuteScriptAsync(
-                $"Remove-ExchangeCertificate -Thumbprint '{t}' -Confirm:$false");
+                $"Remove-ExchangeCertificate -Thumbprint '{t}'{serverArg} -Confirm:$false");
         }
 
         /// <summary>
@@ -145,7 +147,7 @@ namespace ExchangeWebAdmin.API.Services
         public async Task<string> RenewSelfSignedCertificateAsync(string thumbprint, string[] services, string server)
         {
             var t = thumbprint.Replace("'", "''");
-            var svcParam = services.Length > 0 ? string.Join(",", services) : "SMTP,IIS";
+            var svcParam = services.Length > 0 ? string.Join(",", services) : "SMTP";
             _logger.LogInformation("Renouvellement certificat auto-signé {Thumbprint}", thumbprint);
 
             // Récupère le Subject et les domaines de l'ancien cert
@@ -263,7 +265,7 @@ namespace ExchangeWebAdmin.API.Services
         {
             var safeFrom = fromServer.Replace("'", "''");
             var safeTo   = toServer.Replace("'", "''");
-            var svcParam = services.Length > 0 ? string.Join(",", services) : "SMTP,IIS";
+            var svcParam = string.Join(",", services);
 
             _logger.LogInformation("Déploiement certificat {T} de {From} vers {To}", thumbprint, fromServer, toServer);
 

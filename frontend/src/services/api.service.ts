@@ -310,8 +310,10 @@ class ExchangeApiService {
     await this.api.post(`/certificates/${encodeURIComponent(thumbprint)}/services`, { server, services });
   }
 
-  async deleteCertificate(thumbprint: string): Promise<void> {
-    await this.api.delete(`/certificates/${encodeURIComponent(thumbprint)}`);
+  async deleteCertificate(thumbprint: string, server?: string): Promise<void> {
+    await this.api.delete(`/certificates/${encodeURIComponent(thumbprint)}`, {
+      params: server ? { server } : undefined,
+    });
   }
 
   async renewCertificate(thumbprint: string, services: string[], server: string): Promise<{ thumbprint: string }> {

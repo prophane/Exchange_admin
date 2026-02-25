@@ -167,9 +167,9 @@ export default function Certificates() {
   const [caImportForm] = Form.useForm();
 
   // ── Delete handler ─────────────────────────────────────────────────────────
-  const handleDelete = async (thumb: string) => {
+  const handleDelete = async (thumb: string, server: string) => {
     try {
-      await exchangeApi.deleteCertificate(thumb);
+      await exchangeApi.deleteCertificate(thumb, server);
       message.success('Certificat supprimé');
       load();
     } catch (err: any) {
@@ -559,7 +559,7 @@ export default function Certificates() {
                 okText="Supprimer"
                 okButtonProps={{ danger: true }}
                 cancelText="Annuler"
-                onConfirm={() => handleDelete(String(r.Thumbprint ?? ''))}
+                onConfirm={() => handleDelete(String(r.Thumbprint ?? ''), String(r.Server ?? ''))}
               >
                 <Button type="text" danger icon={<DeleteOutlined />} />
               </Popconfirm>
