@@ -287,7 +287,6 @@ class ExchangeApiService {
   async validateLetsEncryptOrder(data: {
     orderId: string;
     services?: string[];
-    server?: string;
   }): Promise<{ thumbprint: string }> {
     const response = await this.api.post('/certificates/letsencrypt/validate', data);
     return response.data;
@@ -295,20 +294,6 @@ class ExchangeApiService {
 
   async enableCertificateServices(thumbprint: string, services: string[]): Promise<void> {
     await this.api.post(`/certificates/${encodeURIComponent(thumbprint)}/services`, { services });
-  }
-
-  async deployCertificateToServer(
-    thumbprint: string,
-    fromServer: string,
-    toServer: string,
-    services: string[],
-  ): Promise<{ thumbprint: string }> {
-    const response = await this.api.post(`/certificates/${encodeURIComponent(thumbprint)}/deploy`, {
-      fromServer,
-      toServer,
-      services,
-    });
-    return response.data;
   }
 
   async deleteCertificate(thumbprint: string): Promise<void> {
@@ -634,40 +619,7 @@ class ExchangeApiService {
     return response.data.data || [];
   }
 
-  async updateOwaMailboxPolicy(name: string, fields: {
-    // Communication
-    instantMessagingEnabled?: boolean; textMessagingEnabled?: boolean;
-    activeSyncIntegrationEnabled?: boolean; contactsEnabled?: boolean;
-    // Informations
-    journalEnabled?: boolean; notesEnabled?: boolean;
-    remindersAndNotificationsEnabled?: boolean;
-    // Sécurité
-    changePasswordEnabled?: boolean; junkEmailEnabled?: boolean;
-    sMimeEnabled?: boolean; iRMEnabled?: boolean;
-    displayPhotosEnabled?: boolean; setPhotoEnabled?: boolean;
-    // Expérience
-    themeSelectionEnabled?: boolean; premiumClientEnabled?: boolean;
-    spellCheckerEnabled?: boolean;
-    // Carnet d'adresses
-    allAddressListsEnabled?: boolean; globalAddressListEnabled?: boolean;
-    publicFoldersEnabled?: boolean;
-    // Organisation
-    calendarEnabled?: boolean; tasksEnabled?: boolean;
-    rulesEnabled?: boolean; signaturesEnabled?: boolean;
-    delegateAccessEnabled?: boolean; recoverDeletedItemsEnabled?: boolean;
-    searchFoldersEnabled?: boolean; wacEditingEnabled?: boolean;
-    // Accès fichiers
-    directFileAccessOnPublicComputersEnabled?: boolean;
-    directFileAccessOnPrivateComputersEnabled?: boolean;
-    webReadyDocumentViewingOnPublicComputersEnabled?: boolean;
-    webReadyDocumentViewingOnPrivateComputersEnabled?: boolean;
-    wacViewingOnPublicComputersEnabled?: boolean;
-    wacViewingOnPrivateComputersEnabled?: boolean;
-    wSSAccessOnPublicComputersEnabled?: boolean;
-    uNCAccessOnPublicComputersEnabled?: boolean;
-    // Enum
-    actionForUnknownFileAndMIMETypes?: string;
-  }): Promise<void> {
+  async updateOwaMailboxPolicy(name: string, fields: { instantMessagingEnabled?: boolean; calendarEnabled?: boolean; tasksEnabled?: boolean }): Promise<void> {
     await this.api.put(`/organization/owa-policies/${encodeURIComponent(name)}`, fields);
   }
 

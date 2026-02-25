@@ -444,7 +444,7 @@ public class OrganizationController : ControllerBase
     [HttpPut("owa-policies/{name}")]
     public async Task<IActionResult> UpdateOwaMailboxPolicy(string name, [FromBody] UpdateOwaPolicyRequest req)
     {
-        try { await _org.UpdateOwaMailboxPolicyAsync(name, req); return Ok(new { success = true }); }
+        try { await _org.UpdateOwaMailboxPolicyAsync(name, req.InstantMessagingEnabled, req.CalendarEnabled, req.TasksEnabled); return Ok(new { success = true }); }
         catch (Exception ex) { return StatusCode(500, new { success = false, error = ex.Message }); }
     }
 
@@ -563,49 +563,4 @@ public record CreateDagRequest(string Name, string WitnessServer, string Witness
 public record UpdateDagRequest(string? WitnessServer, string? WitnessDirectory);
 public record CreateRoleGroupRequest(string Name, string? Description);
 public record UpdateRoleGroupRequest(string? Description);
-public record UpdateOwaPolicyRequest(
-    // Communication
-    bool? InstantMessagingEnabled,
-    bool? TextMessagingEnabled,
-    bool? ActiveSyncIntegrationEnabled,
-    bool? ContactsEnabled,
-    // Informations
-    bool? JournalEnabled,
-    bool? NotesEnabled,
-    bool? RemindersAndNotificationsEnabled,
-    // Sécurité
-    bool? ChangePasswordEnabled,
-    bool? JunkEmailEnabled,
-    bool? SMimeEnabled,
-    bool? IRMEnabled,
-    bool? DisplayPhotosEnabled,
-    bool? SetPhotoEnabled,
-    // Expérience utilisateur
-    bool? ThemeSelectionEnabled,
-    bool? PremiumClientEnabled,
-    bool? SpellCheckerEnabled,
-    // Carnet d'adresses
-    bool? AllAddressListsEnabled,
-    bool? GlobalAddressListEnabled,
-    bool? PublicFoldersEnabled,
-    // Organisation et fonctionnalités
-    bool? CalendarEnabled,
-    bool? TasksEnabled,
-    bool? RulesEnabled,
-    bool? SignaturesEnabled,
-    bool? DelegateAccessEnabled,
-    bool? RecoverDeletedItemsEnabled,
-    bool? SearchFoldersEnabled,
-    bool? WacEditingEnabled,
-    // Accès fichiers
-    bool? DirectFileAccessOnPublicComputersEnabled,
-    bool? DirectFileAccessOnPrivateComputersEnabled,
-    bool? WebReadyDocumentViewingOnPublicComputersEnabled,
-    bool? WebReadyDocumentViewingOnPrivateComputersEnabled,
-    bool? WacViewingOnPublicComputersEnabled,
-    bool? WacViewingOnPrivateComputersEnabled,
-    bool? WSSAccessOnPublicComputersEnabled,
-    bool? UNCAccessOnPublicComputersEnabled,
-    // Enum
-    string? ActionForUnknownFileAndMIMETypes
-);
+public record UpdateOwaPolicyRequest(bool? InstantMessagingEnabled, bool? CalendarEnabled, bool? TasksEnabled);
