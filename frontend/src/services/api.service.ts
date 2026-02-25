@@ -287,8 +287,22 @@ class ExchangeApiService {
   async validateLetsEncryptOrder(data: {
     orderId: string;
     services?: string[];
+    server?: string;
   }): Promise<{ thumbprint: string }> {
     const response = await this.api.post('/certificates/letsencrypt/validate', data);
+    return response.data;
+  }
+
+  async deployCertificateToServer(
+    thumbprint: string,
+    fromServer: string,
+    toServer: string,
+    services: string[]
+  ): Promise<{ thumbprint: string }> {
+    const response = await this.api.post(
+      `/certificates/${encodeURIComponent(thumbprint)}/deploy`,
+      { fromServer, toServer, services }
+    );
     return response.data;
   }
 

@@ -490,42 +490,73 @@ public class LetsEncryptService
         var tempScript = Path.Combine(Path.GetTempPath(), $"dns_acme_{Guid.NewGuid():N}.ps1");
         await File.WriteAllTextAsync(tempScript, scriptLines);
 
-        try
+        // Retry up to 3 times — WinRM/Invoke-Command can fail on the first attempt
+        // due to session initialization latency ("Connecting to remote server failed", etc.)
+        const int maxAttempts = 3;
+        Exception? lastEx = null;
+        for (int attempt = 1; attempt <= maxAttempts; attempt++)
         {
-            var si = new ProcessStartInfo
+            try
             {
-                FileName               = "pwsh.exe",
-                Arguments              = $"-NonInteractive -NoProfile -ExecutionPolicy Bypass -File \"{tempScript}\"",
-                UseShellExecute        = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError  = true,
-                CreateNoWindow         = true,
-            };
+                var si = new ProcessStartInfo
+                {
+                    FileName               = "pwsh.exe",
+                    Arguments              = $"-NonInteractive -NoProfile -ExecutionPolicy Bypass -File \"{tempScript}\"",
+                    UseShellExecute        = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError  = true,
+                    CreateNoWindow         = true,
+                };
 
-            // Pass password exclusively via env var — never in arguments or the script file
-            if (credential != null)
-                si.Environment["DNS_PWD"] = credential.GetNetworkCredential().Password;
+                // Pass password exclusively via env var — never in arguments or the script file
+                if (credential != null)
+                    si.Environment["DNS_PWD"] = credential.GetNetworkCredential().Password;
 
-            using var proc = Process.Start(si)
-                ?? throw new Exception("Impossible de lancer pwsh.exe");
+                using var proc = Process.Start(si)
+                    ?? throw new Exception("Impossible de lancer pwsh.exe");
 
-            var stdout = await proc.StandardOutput.ReadToEndAsync();
-            var stderr = await proc.StandardError.ReadToEndAsync();
-            await proc.WaitForExitAsync();
+                var stdout = await proc.StandardOutput.ReadToEndAsync();
+                var stderr = await proc.StandardError.ReadToEndAsync();
+                await proc.WaitForExitAsync();
 
-            if (!string.IsNullOrWhiteSpace(stdout))
-                _logger.LogDebug("DNS pwsh stdout: {Out}", stdout.Trim());
+                if (!string.IsNullOrWhiteSpace(stdout))
+                    _logger.LogDebug("DNS pwsh stdout (attempt {A}): {Out}", attempt, stdout.Trim());
 
-            if (proc.ExitCode != 0 && add)
-                throw new Exception($"Erreur DNS (ajout TXT) — exit {proc.ExitCode}: {stderr.Trim()}");
+                if (proc.ExitCode != 0 && add)
+                {
+                    var errMsg = stderr.Trim();
+                    _logger.LogWarning("DNS pwsh exit {Code} (attempt {A}/{Max}): {Err}",
+                        proc.ExitCode, attempt, maxAttempts, errMsg);
+                    lastEx = new Exception($"Erreur DNS (ajout TXT) — exit {proc.ExitCode}: {errMsg}");
+                    if (attempt < maxAttempts)
+                    {
+                        await Task.Delay(TimeSpan.FromSeconds(attempt * 3)); // 3s, 6s
+                        continue;
+                    }
+                    throw lastEx;
+                }
 
-            if (!string.IsNullOrWhiteSpace(stderr) && add)
-                _logger.LogWarning("DNS pwsh stderr: {Err}", stderr.Trim());
+                if (!string.IsNullOrWhiteSpace(stderr) && add)
+                    _logger.LogWarning("DNS pwsh stderr: {Err}", stderr.Trim());
+
+                // Success — exit retry loop
+                lastEx = null;
+                break;
+            }
+            catch (Exception ex) when (ex != lastEx)
+            {
+                // Unexpected exception (process launch failure, etc.)
+                _logger.LogWarning("DNS pwsh exception (attempt {A}/{Max}): {Err}",
+                    attempt, maxAttempts, ex.Message);
+                lastEx = ex;
+                if (attempt < maxAttempts)
+                    await Task.Delay(TimeSpan.FromSeconds(attempt * 3));
+                else
+                    throw;
+            }
         }
-        finally
-        {
-            File.Delete(tempScript);
-        }
+
+        File.Delete(tempScript);
     }
 
     /// <summary>
