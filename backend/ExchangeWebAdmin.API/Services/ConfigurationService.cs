@@ -264,58 +264,105 @@ namespace ExchangeWebAdmin.API.Services
             // Mot de passe temporaire pour le PFX
             var pfxPwd = Guid.NewGuid().ToString("N")[..12];
 
-            // SecureString pour l'export
-            var exportPwd = new System.Security.SecureString();
-            foreach (var c in pfxPwd) exportPwd.AppendChar(c);
-            exportPwd.MakeReadOnly();
-
-            // Export depuis le serveur source
-            var exportResult = await _psService.ExecuteScriptAsync("Export-ExchangeCertificate", new Dictionary<string, object>
+            // ── Export depuis le serveur source (avec retry WinRM) ────────────
+            byte[] pfxBytes = [];
+            Exception? lastExportEx = null;
+            for (int attempt = 1; attempt <= 3; attempt++)
             {
-                ["Thumbprint"]    = thumbprint,
-                ["Server"]        = fromServer,
-                ["BinaryEncoded"] = true,
-                ["Password"]      = exportPwd,
-            });
+                try
+                {
+                    if (attempt > 1)
+                    {
+                        _logger.LogWarning("Export-ExchangeCertificate tentative {N}/3 après {D}s", attempt, attempt * 3);
+                        await Task.Delay(attempt * 3000);
+                    }
 
-            byte[] pfxBytes;
-            if (exportResult is List<Dictionary<string, object>> rows && rows.Count > 0
-                && rows[0].TryGetValue("_bytes", out var bytesVal) && bytesVal is byte[] exportedBytes)
-            {
-                pfxBytes = exportedBytes;
+                    var exportPwd = new System.Security.SecureString();
+                    foreach (var c in pfxPwd) exportPwd.AppendChar(c);
+                    exportPwd.MakeReadOnly();
+
+                    var exportResult = await _psService.ExecuteScriptAsync("Export-ExchangeCertificate", new Dictionary<string, object>
+                    {
+                        ["Thumbprint"]    = thumbprint,
+                        ["Server"]        = fromServer,
+                        ["BinaryEncoded"] = true,
+                        ["Password"]      = exportPwd,
+                    });
+
+                    if (exportResult is List<Dictionary<string, object>> rows && rows.Count > 0
+                        && rows[0].TryGetValue("_bytes", out var bytesVal) && bytesVal is byte[] exportedBytes && exportedBytes.Length > 0)
+                    {
+                        pfxBytes = exportedBytes;
+                        _logger.LogInformation("Export réussi : {Bytes} octets", pfxBytes.Length);
+                        break;
+                    }
+                    else if (exportResult is byte[] raw && raw.Length > 0)
+                    {
+                        pfxBytes = raw;
+                        _logger.LogInformation("Export réussi (raw) : {Bytes} octets", pfxBytes.Length);
+                        break;
+                    }
+                    else
+                    {
+                        var type = exportResult?.GetType()?.Name ?? "null";
+                        lastExportEx = new Exception(
+                            $"Export-ExchangeCertificate tentative {attempt} : aucune donnée binaire (type={type}). "
+                            + "Vérifiez que le certificat existe sur {fromServer} et que la clé privée est exportable.");
+                        _logger.LogWarning("{Msg}", lastExportEx.Message);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    lastExportEx = ex;
+                    _logger.LogWarning("Export tentative {N} échouée : {Msg}", attempt, ex.Message);
+                }
             }
-            else if (exportResult is byte[] raw)
-            {
-                pfxBytes = raw;
-            }
-            else
-            {
-                throw new Exception(
-                    $"Export-ExchangeCertificate n'a retourné aucune donnée binaire depuis {fromServer}. "
-                    + "Vérifiez que le certificat existe et que la clé privée est marquée exportable.");
-            }
 
-            // SecureString pour l'import
-            var importPwd = new System.Security.SecureString();
-            foreach (var c in pfxPwd) importPwd.AppendChar(c);
-            importPwd.MakeReadOnly();
+            if (pfxBytes.Length == 0)
+                throw lastExportEx ?? new Exception($"Export-ExchangeCertificate a échoué après 3 tentatives depuis {fromServer}.");
 
-            // Import sur le serveur cible
-            var importResult = await _psService.ExecuteScriptAsync("Import-ExchangeCertificate", new Dictionary<string, object>
+            // ── Import sur le serveur cible (avec retry WinRM) ───────────────
+            var newThumb = thumbprint;
+            Exception? lastImportEx = null;
+            for (int attempt = 1; attempt <= 3; attempt++)
             {
-                ["FileData"]             = pfxBytes,
-                ["Server"]               = toServer,
-                ["Password"]             = importPwd,
-                ["PrivateKeyExportable"] = true,
-            });
+                try
+                {
+                    if (attempt > 1)
+                    {
+                        _logger.LogWarning("Import-ExchangeCertificate tentative {N}/3 après {D}s", attempt, attempt * 3);
+                        await Task.Delay(attempt * 3000);
+                    }
 
-            var newThumb = thumbprint; // défaut : même thumbprint (PFX source)
-            if (importResult is List<Dictionary<string, object>> rows2 && rows2.Count > 0)
-            {
-                var row = rows2[0];
-                if (row.TryGetValue("Thumbprint", out var tp) && tp?.ToString()?.Length == 40)
-                    newThumb = tp.ToString()!.ToUpperInvariant();
+                    var importPwd = new System.Security.SecureString();
+                    foreach (var c in pfxPwd) importPwd.AppendChar(c);
+                    importPwd.MakeReadOnly();
+
+                    var importResult = await _psService.ExecuteScriptAsync("Import-ExchangeCertificate", new Dictionary<string, object>
+                    {
+                        ["FileData"]             = pfxBytes,
+                        ["Server"]               = toServer,
+                        ["Password"]             = importPwd,
+                        ["PrivateKeyExportable"] = true,
+                    });
+
+                    if (importResult is List<Dictionary<string, object>> rows2 && rows2.Count > 0)
+                    {
+                        var row = rows2[0];
+                        if (row.TryGetValue("Thumbprint", out var tp) && tp?.ToString()?.Length == 40)
+                            newThumb = tp.ToString()!.ToUpperInvariant();
+                        _logger.LogInformation("Import réussi sur {To}, thumb={T}", toServer, newThumb);
+                    }
+                    lastImportEx = null;
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    lastImportEx = ex;
+                    _logger.LogWarning("Import tentative {N} échouée : {Msg}", attempt, ex.Message);
+                }
             }
+            if (lastImportEx != null) throw lastImportEx;
 
             // Fallback : Get-ExchangeCertificate si Import n'a pas retourné le Thumbprint
             if (newThumb == thumbprint || newThumb.Length != 40)

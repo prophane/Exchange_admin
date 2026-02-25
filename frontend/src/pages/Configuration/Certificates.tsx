@@ -156,8 +156,8 @@ export default function Certificates() {
   const [caDeployTargets, setCaDeployTargets] = useState<string[]>([]);
   const [leDeployTargets, setLeDeployTargets] = useState<string[]>([]);
   const [deployBusy, setDeployBusy]           = useState(false);
-  const [caDeployResults, setCaDeployResults] = useState<Record<string, 'ok' | 'error'>>({});
-  const [leDeployResults, setLeDeployResults] = useState<Record<string, 'ok' | 'error'>>({});
+  const [caDeployResults, setCaDeployResults] = useState<Record<string, 'ok' | string>>({});
+  const [leDeployResults, setLeDeployResults] = useState<Record<string, 'ok' | string>>({});
 
   // ── CA Entreprise wizard state ─────────────────────────────────────────────
   const [caOpen, setCaOpen]   = useState(false);
@@ -430,13 +430,15 @@ export default function Certificates() {
       ? (which === 'ca' ? caFinalServices : leFinalServices) : ['SMTP', 'IIS'];
     if (!thumbprint || !fromServer || !targets.length) return;
     setDeployBusy(true);
-    const results: Record<string, 'ok' | 'error'> = {};
+    const results: Record<string, 'ok' | string> = {};
     for (const target of targets) {
       try {
         await exchangeApi.deployCertificateToServer(thumbprint, fromServer, target, services);
         results[target] = 'ok';
-      } catch {
-        results[target] = 'error';
+      } catch (err: any) {
+        const msg = err?.response?.data?.error ?? err?.response?.data?.message ?? err?.message ?? 'Erreur inconnue';
+        results[target] = msg;
+        message.error(`Déploiement vers ${target} : ${msg}`, 8);
       }
     }
     if (which === 'ca') setCaDeployResults(results);
@@ -782,7 +784,9 @@ export default function Certificates() {
                   {Object.keys(leDeployResults).length > 0 && (
                     <Space wrap style={{ marginTop: 8 }}>
                       {Object.entries(leDeployResults).map(([srv, res]) => (
-                        <Tag key={srv} color={res === 'ok' ? 'green' : 'red'} icon={res === 'ok' ? <CheckCircleOutlined /> : undefined}>{srv}</Tag>
+                        res === 'ok'
+                          ? <Tag key={srv} color="green" icon={<CheckCircleOutlined />}>{srv}</Tag>
+                          : <Tooltip key={srv} title={res}><Tag color="red">{srv}</Tag></Tooltip>
                       ))}
                     </Space>
                   )}
@@ -996,7 +1000,9 @@ export default function Certificates() {
                   {Object.keys(caDeployResults).length > 0 && (
                     <Space wrap style={{ marginTop: 8 }}>
                       {Object.entries(caDeployResults).map(([srv, res]) => (
-                        <Tag key={srv} color={res === 'ok' ? 'green' : 'red'} icon={res === 'ok' ? <CheckCircleOutlined /> : undefined}>{srv}</Tag>
+                        res === 'ok'
+                          ? <Tag key={srv} color="green" icon={<CheckCircleOutlined />}>{srv}</Tag>
+                          : <Tooltip key={srv} title={res}><Tag color="red">{srv}</Tag></Tooltip>
                       ))}
                     </Space>
                   )}
