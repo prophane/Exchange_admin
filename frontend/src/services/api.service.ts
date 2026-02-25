@@ -306,8 +306,8 @@ class ExchangeApiService {
     return response.data;
   }
 
-  async enableCertificateServices(thumbprint: string, services: string[]): Promise<void> {
-    await this.api.post(`/certificates/${encodeURIComponent(thumbprint)}/services`, { services });
+  async enableCertificateServices(thumbprint: string, server: string, services: string[]): Promise<void> {
+    await this.api.post(`/certificates/${encodeURIComponent(thumbprint)}/services`, { server, services });
   }
 
   async deleteCertificate(thumbprint: string): Promise<void> {

@@ -99,13 +99,16 @@ namespace ExchangeWebAdmin.API.Services
             return names.Count > 0 ? string.Join(", ", names) : "None";
         }
 
-        public async Task EnableCertificateServicesAsync(string thumbprint, string[] services)
+        public async Task EnableCertificateServicesAsync(string thumbprint, string server, string[] services)
         {
-            var s = string.Join(",", services.Length > 0 ? services : ["SMTP", "IIS"]);
+            if (services.Length == 0) return;
+            var s = string.Join(",", services);
             var t = thumbprint.Replace("'", "''");
-            _logger.LogInformation("Activation services {Services} pour certificat {Thumbprint}", s, thumbprint);
+            var srv = server.Replace("'", "''");
+            var serverArg = string.IsNullOrWhiteSpace(srv) ? "" : $" -Server '{srv}'";
+            _logger.LogInformation("Activation services {Services} pour certificat {Thumbprint} sur {Server}", s, thumbprint, server);
             await _psService.ExecuteScriptAsync(
-                $"Enable-ExchangeCertificate -Thumbprint '{t}' -Services {s} -Force -Confirm:$false");
+                $"Enable-ExchangeCertificate -Thumbprint '{t}'{serverArg} -Services {s} -Force -Confirm:$false");
         }
 
         public async Task<Dictionary<string, object>?> GetCertificateAsync(string thumbprint)

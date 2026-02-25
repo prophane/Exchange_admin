@@ -342,7 +342,8 @@ export default function Certificates() {
       if (!services.length) { message.error('Sélectionnez au moins un service'); return; }
       setEditServBusy(true);
       const thumb = String(editServCert?.Thumbprint ?? '');
-      await exchangeApi.enableCertificateServices(thumb, services);
+      const server = String(editServCert?.Server ?? '');
+      await exchangeApi.enableCertificateServices(thumb, server, services);
       message.success('Services mis à jour');
       setEditServOpen(false);
       load();

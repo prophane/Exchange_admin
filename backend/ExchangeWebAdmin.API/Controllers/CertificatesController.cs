@@ -34,6 +34,7 @@ namespace ExchangeWebAdmin.API.Controllers
 
     public class EnableCertServicesRequest
     {
+        public string Server { get; set; } = string.Empty;
         public string[] Services { get; set; } = [];
     }
 
@@ -135,7 +136,7 @@ namespace ExchangeWebAdmin.API.Controllers
                 if (string.IsNullOrWhiteSpace(thumbprint))
                     return BadRequest(new { success = false, error = "Thumbprint requis" });
 
-                await _configService.EnableCertificateServicesAsync(thumbprint, req.Services ?? []);
+                await _configService.EnableCertificateServicesAsync(thumbprint, req.Server ?? string.Empty, req.Services ?? []);
                 return Ok(new { success = true });
             }
             catch (Exception ex)
