@@ -292,7 +292,7 @@ public class LetsEncryptService
         // FileData (byte[]) is supported on Exchange 2010/2013/2016/2019.
         // FileName is Exchange 2013 only → never use it.
         _logger.LogInformation("📥 Import du certificat dans Exchange...");
-        var servicesParam = string.Join(",", exchangeServices.Length > 0 ? exchangeServices : ["SMTP", "IIS"]);
+        var servicesParam = string.Join(",", exchangeServices);
 
         // Build SecureString in C# to avoid (ConvertTo-SecureString ...) subexpression in restricted mode.
         // Use param($pfxData, $pfxPass) instead of $args[0]/$args[1] — array indexing is also forbidden.
@@ -385,7 +385,8 @@ public class LetsEncryptService
         }
 
         // Enable services — thumbprint injected as literal string, no property access
-        if (!string.IsNullOrWhiteSpace(thumbprint) && thumbprint != "OK" && thumbprint.Length == 40)
+        if (!string.IsNullOrWhiteSpace(thumbprint) && thumbprint != "OK" && thumbprint.Length == 40
+            && exchangeServices.Length > 0)
         {
             var escapedThumb = thumbprint.Replace("'", "''");
             var serverArg = !string.IsNullOrEmpty(exchangeServer)

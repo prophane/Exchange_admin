@@ -251,6 +251,39 @@ public class PowerShellService : IPowerShellService, IDisposable
                         continue;
                     }
 
+                    // Deserialized.System.Byte[] via PSRemoting WSMan (BaseObject != byte[] mais TypeNames l'indique)
+                    // Exchange retourne des byte[] sérialisés via PSRP — il faut les extraire via l'énumération
+                    if (result?.TypeNames?.Any(t => t.Contains("Byte[]")) == true)
+                    {
+                        try
+                        {
+                            byte[]? extracted = null;
+                            var baseObj = result.BaseObject;
+                            if (baseObj is byte[] bDirect)
+                                extracted = bDirect;
+                            else if (baseObj is System.Array arr)
+                                extracted = arr.Cast<object>().Select(o => Convert.ToByte(o)).ToArray();
+                            else
+                            {
+                                // Dernier recours : énumérer le PSObject lui-même
+                                var enumerable = result as System.Collections.IEnumerable
+                                              ?? result.BaseObject as System.Collections.IEnumerable;
+                                if (enumerable != null)
+                                    extracted = enumerable.Cast<object>().Select(o => Convert.ToByte(o)).ToArray();
+                            }
+                            if (extracted?.Length > 0)
+                            {
+                                convertedResults.Add(new Dictionary<string, object> { ["_bytes"] = extracted });
+                                _logger.LogDebug("Byte[] extrait depuis Deserialized.System.Byte[]: {Size} octets", extracted.Length);
+                                continue;
+                            }
+                        }
+                        catch (Exception bex)
+                        {
+                            _logger.LogWarning("Extraction byte[] depuis Deserialized échouée: {Msg}", bex.Message);
+                        }
+                    }
+
                     var dict = new Dictionary<string, object>();
                     
                     if (result?.BaseObject != null)

@@ -225,7 +225,10 @@ namespace ExchangeWebAdmin.API.Services
             var tempPath = $@"C:\Windows\Temp\excert_{Guid.NewGuid():N}.p7b";
             await File.WriteAllBytesAsync(tempPath, bytes);
 
-            var svcParam = services.Length > 0 ? string.Join(",", services) : "SMTP,IIS";
+            var svcParam    = string.Join(",", services);
+            var enableLine  = services.Length > 0
+                ? $"Enable-ExchangeCertificate -Thumbprint $imported.Thumbprint -Services {svcParam} -Force -Confirm:$false"
+                : "";
             var pwdParam = !string.IsNullOrEmpty(pfxPassword)
                 ? $" -Password (ConvertTo-SecureString '{pfxPassword.Replace("'", "''")}' -AsPlainText -Force)"
                 : "";
@@ -238,7 +241,7 @@ namespace ExchangeWebAdmin.API.Services
                 $imported = Import-ExchangeCertificate -FileData $bytes{pwdParam} -Server '{server.Replace("'", "''")}'
                 Remove-Item '{safePath}' -Force -ErrorAction SilentlyContinue
                 if ($imported) {{
-                    Enable-ExchangeCertificate -Thumbprint $imported.Thumbprint -Services {svcParam} -Force -Confirm:$false
+                    {enableLine}
                     $imported.Thumbprint
                 }}
             ";
@@ -307,7 +310,7 @@ namespace ExchangeWebAdmin.API.Services
                         var type = exportResult?.GetType()?.Name ?? "null";
                         lastExportEx = new Exception(
                             $"Export-ExchangeCertificate tentative {attempt} : aucune donnée binaire (type={type}). "
-                            + "Vérifiez que le certificat existe sur {fromServer} et que la clé privée est exportable.");
+                            + $"Vérifiez que le certificat existe sur {fromServer} et que la clé privée est exportable.");
                         _logger.LogWarning("{Msg}", lastExportEx.Message);
                     }
                 }
@@ -388,10 +391,17 @@ namespace ExchangeWebAdmin.API.Services
                 catch (Exception ex) { _logger.LogWarning("Fallback Get-ExchangeCertificate cible: {Msg}", ex.Message); }
             }
 
-            // Enable sur le serveur cible
-            var safeThumb = newThumb.Replace("'", "''");
-            await _psService.ExecuteScriptAsync(
-                $"Enable-ExchangeCertificate -Thumbprint '{safeThumb}' -Server '{safeTo}' -Services {svcParam} -Force -Confirm:$false");
+            // Enable sur le serveur cible (seulement si services demandés)
+            if (services.Length > 0)
+            {
+                var safeThumb = newThumb.Replace("'", "''");
+                await _psService.ExecuteScriptAsync(
+                    $"Enable-ExchangeCertificate -Thumbprint '{safeThumb}' -Server '{safeTo}' -Services {svcParam} -Force -Confirm:$false");
+            }
+            else
+            {
+                _logger.LogInformation("Déploiement sans activation de services (services=[]) sur {To}", toServer);
+            }
 
             return newThumb;
         }

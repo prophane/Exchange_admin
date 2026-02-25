@@ -292,7 +292,7 @@ export default function Certificates() {
         domainNames: domains,
         friendlyName: values.friendlyName || domains[0],
         keySize: Number(values.keySize) || 2048,
-        services: values.services ?? ['SMTP', 'IIS'],
+        services: values.services ?? [],
       });
       setCaCsr(res.csr);
       setCaStep(1);
@@ -313,7 +313,7 @@ export default function Certificates() {
       setCaError(null);
       const importServer = caServer;
       if (!importServer) { setCaError('Sélectionnez un serveur avant d\'importer'); setCaBusy(false); return; }
-      const importServices = values.importServices ?? ['SMTP', 'IIS'];
+      const importServices = values.importServices ?? [];
       const res = await exchangeApi.importCertificateResponse({
         server: importServer,
         base64Certificate: b64,
@@ -408,7 +408,7 @@ export default function Certificates() {
     try {
       setLeBusy(true);
       setLeError(null);
-      const services: string[] = leForm.getFieldValue('services') ?? ['SMTP', 'IIS'];
+      const services: string[] = leForm.getFieldValue('services') ?? [];
       const res = await exchangeApi.validateLetsEncryptOrder({ orderId: leOrderId, services, server: leServer || undefined });
       setLeFinalServices(services);
       setLeThumbprint(res.thumbprint);
