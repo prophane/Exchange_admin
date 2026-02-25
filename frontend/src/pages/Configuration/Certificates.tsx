@@ -90,18 +90,12 @@ export default function Certificates() {
 
   // ── Filtre pur front : dérivé de allCerts + selectedServer, JAMAIS un appel réseau ────────
   const certs = useMemo(() => {
-    console.log('[CERT-FILTER] selectedServer=', JSON.stringify(selectedServer), 'allCerts.length=', allCerts.length);
-    if (!selectedServer) {
-      console.log('[CERT-FILTER] → PAS DE FILTRE, retourne tout:', allCerts.length);
-      return allCerts;
-    }
+    if (!selectedServer) return allCerts;
     const wanted = selectedServer.toUpperCase();
-    const filtered = allCerts.filter((c) => {
+    return allCerts.filter((c) => {
       const srv = String(c.Server ?? '').toUpperCase();
       return srv === wanted || srv.startsWith(wanted + '.') || srv.startsWith(wanted + '\\');
     });
-    console.log('[CERT-FILTER] → FILTRE wanted=', wanted, 'result=', filtered.length, '/', allCerts.length);
-    return filtered;
   }, [allCerts, selectedServer]);
 
   // ── Chargement de TOUS les certificats (sans filtre serveur) ──────────────────────
@@ -112,8 +106,6 @@ export default function Certificates() {
       const data = await exchangeApi.getCertificates();
       const all = Array.isArray(data) ? data : [];
       setAllCerts(all);
-      // DEBUG — à retirer une fois le filtre validé
-      console.log('[CERT] Loaded', all.length, 'certs. Server values:', [...new Set(all.map(c => c.Server))]);
     } catch (err: unknown) {
       const e = err as { response?: { data?: { error?: string; message?: string; detail?: string } }; message?: string };
       const msg = e?.response?.data?.message ?? e?.response?.data?.detail ?? e?.response?.data?.error ?? e?.message ?? 'Erreur inconnue';
@@ -454,7 +446,6 @@ export default function Certificates() {
 
   useEffect(() => {
     exchangeApi.getExchangeServers().then((s) => {
-      console.log('[CERT] Servers:', s.map((x: any) => x.Name ?? x.Fqdn));
       setServers(s);
     }).catch(() => {});
   }, []);
@@ -577,7 +568,7 @@ export default function Certificates() {
             <Select
               style={{ width: 200 }}
               value={selectedServer || undefined}
-              onChange={(v) => { console.log('[CERT-SELECT] onChange v=', JSON.stringify(v)); setSelectedServer(v ?? ''); }}
+              onChange={(v) => setSelectedServer(v ?? '')}
               allowClear
               placeholder="Tous les serveurs"
               options={servers.map((s: any) => ({ value: s.Name ?? s.Fqdn, label: s.Name ?? s.Fqdn }))}
@@ -612,7 +603,7 @@ export default function Certificates() {
         <Table
           columns={columns}
           dataSource={certs}
-          rowKey={(r) => String(r.Thumbprint ?? Math.random())}
+          rowKey={(r) => `${String(r.Server ?? '')}_${String(r.Thumbprint ?? Math.random())}`}
           loading={loading}
           pagination={false}
           size="middle"
