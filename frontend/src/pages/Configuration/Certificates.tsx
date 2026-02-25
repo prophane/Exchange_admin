@@ -86,7 +86,7 @@ export default function Certificates() {
 
   // ── Server selector ────────────────────────────────────────────────────────
   const [servers, setServers]               = useState<any[]>([]);
-  const [selectedServer, setSelectedServer] = useState<string | undefined>(undefined);
+  const [selectedServer, setSelectedServer] = useState<string>('');
 
   // ── Filtre pur front : dérivé de allCerts + selectedServer, JAMAIS un appel réseau ────────
   const certs = useMemo(() => {
@@ -106,7 +106,8 @@ export default function Certificates() {
       const data = await exchangeApi.getCertificates();
       const all = Array.isArray(data) ? data : [];
       setAllCerts(all);
-      message.success(`${all.length} certificat(s) charge(s)`);
+      // DEBUG — à retirer une fois le filtre validé
+      console.log('[CERT] Loaded', all.length, 'certs. Server values:', [...new Set(all.map(c => c.Server))]);
     } catch (err: unknown) {
       const e = err as { response?: { data?: { error?: string; message?: string; detail?: string } }; message?: string };
       const msg = e?.response?.data?.message ?? e?.response?.data?.detail ?? e?.response?.data?.error ?? e?.message ?? 'Erreur inconnue';
@@ -446,7 +447,10 @@ export default function Certificates() {
   };
 
   useEffect(() => {
-    exchangeApi.getExchangeServers().then(setServers).catch(() => {});
+    exchangeApi.getExchangeServers().then((s) => {
+      console.log('[CERT] Servers:', s.map((x: any) => x.Name ?? x.Fqdn));
+      setServers(s);
+    }).catch(() => {});
   }, []);
 
   // Chargement initial unique — le filtre selectedServer est appliqué via useMemo, sans nouvel appel réseau
@@ -565,11 +569,11 @@ export default function Certificates() {
         <Space>
           {servers.length > 1 && (
             <Select
-              placeholder="Tous les serveurs"
-              allowClear
               style={{ width: 200 }}
-              value={selectedServer}
-              onChange={(v) => setSelectedServer(v)}
+              value={selectedServer || undefined}
+              onChange={(v) => setSelectedServer(v ?? '')}
+              allowClear
+              placeholder="Tous les serveurs"
               options={servers.map((s: any) => ({ value: s.Name ?? s.Fqdn, label: s.Name ?? s.Fqdn }))}
             />
           )}
