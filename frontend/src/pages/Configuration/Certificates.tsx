@@ -340,6 +340,19 @@ export default function Certificates() {
       const values = await editServForm.validateFields();
       const services: string[] = values.services ?? [];
       if (!services.length) { message.error('Sélectionnez au moins un service'); return; }
+      if (services.includes('SMTP')) {
+        const confirmed = await new Promise<boolean>((resolve) => {
+          Modal.confirm({
+            title: 'Remplacer le certificat SMTP par défaut ?',
+            content: 'Activer SMTP sur ce certificat remplacera le certificat actuellement utilisé par défaut pour les connexions SMTP entrantes/sortantes. Continuer ?',
+            okText: 'Oui, remplacer',
+            cancelText: 'Annuler',
+            onOk: () => resolve(true),
+            onCancel: () => resolve(false),
+          });
+        });
+        if (!confirmed) return;
+      }
       setEditServBusy(true);
       const thumb = String(editServCert?.Thumbprint ?? '');
       const server = String(editServCert?.Server ?? '');

@@ -281,7 +281,8 @@ public class LetsEncryptService
             }
         }
 
-        var pfxBytes = pfxBuilder.Build("LetsEncrypt", pfxPassword);
+        var friendlyName = state.Domains.Length > 0 ? state.Domains[0] : "LetsEncrypt";
+        var pfxBytes = pfxBuilder.Build(friendlyName, pfxPassword);
 
         // Import into Exchange via PowerShell (Exchange 2010)
         // Restricted Language Mode constraints:
@@ -352,7 +353,7 @@ public class LetsEncryptService
         }
 
         // Fallback thumbprint recovery : si Import-ExchangeCertificate n'a pas retourné de Thumbprint
-        // utilisable, on interroge Get-ExchangeCertificate et on cherche FriendlyName="LetsEncrypt".
+        // utilisable, on interroge Get-ExchangeCertificate et on cherche par FriendlyName (= premier domaine).
         if (thumbprint == "OK" || thumbprint.Length != 40)
         {
             _logger.LogInformation("🔍 Thumbprint non capturé depuis Import — récupération via Get-ExchangeCertificate");
@@ -367,7 +368,7 @@ public class LetsEncryptService
                 if (certs != null)
                 {
                     var match = certs.FirstOrDefault(c =>
-                        c.TryGetValue("FriendlyName", out var fn) && fn?.ToString() == "LetsEncrypt");
+                        c.TryGetValue("FriendlyName", out var fn) && fn?.ToString() == friendlyName);
                     // Fallback: cert le plus récent
                     match ??= certs
                         .OrderByDescending(c =>
