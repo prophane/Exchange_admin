@@ -392,13 +392,23 @@ export default function Certificates() {
     }
   };
 
-  const load = async () => {
+  const load = async (srv?: string) => {
+    // srv permet d'éviter les problèmes de closure React avec selectedServer
+    const serverParam = srv !== undefined ? srv : selectedServer;
     setLoading(true);
     setError(null);
     try {
-      const data = await exchangeApi.getCertificates(selectedServer);
-      setCerts(Array.isArray(data) ? data : []);
-      if (Array.isArray(data) && data.length) message.success(`${data.length} certificat(s) charge(s)`);
+      const data = await exchangeApi.getCertificates(serverParam || undefined);
+      // Filtrage client en filet de sécurité
+      const filtered = serverParam
+        ? (Array.isArray(data) ? data : []).filter((c: Record<string, unknown>) => {
+            const certSrv = String(c.Server ?? '').toUpperCase();
+            const wanted  = serverParam.toUpperCase();
+            return certSrv === wanted || certSrv.startsWith(wanted);
+          })
+        : (Array.isArray(data) ? data : []);
+      setCerts(filtered);
+      if (filtered.length) message.success(`${filtered.length} certificat(s) charge(s)`);
     } catch (err: unknown) {
       const e = err as { response?: { data?: { error?: string; message?: string; detail?: string } }; message?: string };
       const msg = e?.response?.data?.message ?? e?.response?.data?.detail ?? e?.response?.data?.error ?? e?.message ?? 'Erreur inconnue';
@@ -435,7 +445,8 @@ export default function Certificates() {
     exchangeApi.getExchangeServers().then(setServers).catch(() => {});
   }, []);
 
-  useEffect(() => { load(); }, [selectedServer]);
+  // On passe selectedServer explicitement pour éviter toute closure stale
+  useEffect(() => { load(selectedServer); }, [selectedServer]);
 
   const columns: ColumnsType<Record<string, unknown>> = [
     {
@@ -564,7 +575,7 @@ export default function Certificates() {
           <Button icon={<LockOutlined />} type="primary" onClick={openLeWizard}>
             Let's Encrypt
           </Button>
-          <Button icon={<ReloadOutlined />} onClick={load} loading={loading}>Actualiser</Button>
+          <Button icon={<ReloadOutlined />} onClick={() => load(selectedServer)} loading={loading}>Actualiser</Button>
         </Space>
       </div>
 
