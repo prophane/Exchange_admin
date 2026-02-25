@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Table, Button, Space, Typography, Tag, Modal,
   Descriptions, Alert, Tooltip, Badge, Spin, message,
@@ -88,6 +88,36 @@ export default function Certificates() {
   const [servers, setServers]               = useState<any[]>([]);
   const [selectedServer, setSelectedServer] = useState<string | undefined>(undefined);
 
+  // ── Load certificates ──────────────────────────────────────────────────────
+  // Défini en premier pour être disponible dans tous les handlers sans dépendance de closure
+  const load = useCallback(async (srv?: string) => {
+    const serverParam = srv !== undefined ? srv : selectedServer;
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await exchangeApi.getCertificates(serverParam || undefined);
+      // Filtrage client en filet de sécurité
+      const filtered = serverParam
+        ? (Array.isArray(data) ? data : []).filter((c: Record<string, unknown>) => {
+            const certSrv = String(c.Server ?? '').toUpperCase();
+            const wanted  = serverParam.toUpperCase();
+            // Accepte correspondance exacte ou si le nom court est contenu dans le FQDN
+            return certSrv === wanted
+              || certSrv.startsWith(wanted + '.')
+              || certSrv.startsWith(wanted + '\\');
+          })
+        : (Array.isArray(data) ? data : []);
+      setCerts(filtered);
+      if (filtered.length) message.success(`${filtered.length} certificat(s) charge(s)`);
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { error?: string; message?: string; detail?: string } }; message?: string };
+      const msg = e?.response?.data?.message ?? e?.response?.data?.detail ?? e?.response?.data?.error ?? e?.message ?? 'Erreur inconnue';
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedServer]);
+
   // ── Let's Encrypt wizard state ─────────────────────────────────────────────
   const [leOpen, setLeOpen]         = useState(false);
   const [leStep, setLeStep]         = useState(0);
@@ -144,7 +174,7 @@ export default function Certificates() {
     try {
       await exchangeApi.deleteCertificate(thumb);
       message.success('Certificat supprimé');
-      load();
+      load(selectedServer);
     } catch (err: any) {
       message.error(err?.response?.data?.error ?? err?.message ?? 'Erreur suppression');
     }
@@ -223,7 +253,7 @@ export default function Certificates() {
       const res = await exchangeApi.renewCertificate(thumb, services, certServer);
       setRenewDone(res.thumbprint ?? '');
       message.success('Certificat renouvelé avec succès');
-      load();
+      load(selectedServer);
     } catch (err: any) {
       message.error(err?.response?.data?.error ?? err?.message ?? 'Erreur renouvellement');
     } finally {
@@ -293,7 +323,7 @@ export default function Certificates() {
       setCaFinalServices(importServices);
       setCaThumb(res.thumbprint ?? '');
       setCaStep(2);
-      load();
+      load(selectedServer);
     } catch (err: any) {
       setCaError(err?.response?.data?.error ?? err?.message ?? 'Erreur import certificat');
     } finally {
@@ -318,7 +348,7 @@ export default function Certificates() {
       await exchangeApi.enableCertificateServices(thumb, services);
       message.success('Services mis à jour');
       setEditServOpen(false);
-      load();
+      load(selectedServer);
     } catch (err: any) {
       const msg = err?.response?.data?.error ?? err?.message ?? 'Erreur inconnue';
       message.error(msg);
@@ -383,38 +413,12 @@ export default function Certificates() {
       setLeFinalServices(services);
       setLeThumbprint(res.thumbprint);
       setLeStep(2);
-      load(); // refresh table
+      load(selectedServer); // refresh table
     } catch (err: any) {
       const msg = err?.response?.data?.error ?? err?.message ?? 'Erreur inconnue';
       setLeError(msg);
     } finally {
       setLeBusy(false);
-    }
-  };
-
-  const load = async (srv?: string) => {
-    // srv permet d'éviter les problèmes de closure React avec selectedServer
-    const serverParam = srv !== undefined ? srv : selectedServer;
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await exchangeApi.getCertificates(serverParam || undefined);
-      // Filtrage client en filet de sécurité
-      const filtered = serverParam
-        ? (Array.isArray(data) ? data : []).filter((c: Record<string, unknown>) => {
-            const certSrv = String(c.Server ?? '').toUpperCase();
-            const wanted  = serverParam.toUpperCase();
-            return certSrv === wanted || certSrv.startsWith(wanted);
-          })
-        : (Array.isArray(data) ? data : []);
-      setCerts(filtered);
-      if (filtered.length) message.success(`${filtered.length} certificat(s) charge(s)`);
-    } catch (err: unknown) {
-      const e = err as { response?: { data?: { error?: string; message?: string; detail?: string } }; message?: string };
-      const msg = e?.response?.data?.message ?? e?.response?.data?.detail ?? e?.response?.data?.error ?? e?.message ?? 'Erreur inconnue';
-      setError(msg);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -438,7 +442,7 @@ export default function Certificates() {
     if (which === 'ca') setCaDeployResults(results);
     else setLeDeployResults(results);
     setDeployBusy(false);
-    load();
+    load(selectedServer);
   };
 
   useEffect(() => {
