@@ -328,7 +328,7 @@ public class OrganizationService
             @"Get-AddressList -ResultSize Unlimited | Select-Object Name, RecipientFilterType, RecipientFilter, Container",
             "Get-AddressList");
         foreach (var item in list)
-            item["RecipientFilter"] = item.GetValueOrDefault("RecipientFilter")?.ToString();
+            item["RecipientFilter"] = item.GetValueOrDefault("RecipientFilter")?.ToString() ?? "";
         return list;
     }
 
@@ -343,7 +343,7 @@ public class OrganizationService
             @"Get-OfflineAddressBook | Select-Object Name, IsDefault, LastRequestedTime, GeneratingMailbox",
             "Get-OfflineAddressBook");
         foreach (var item in list)
-            item["GeneratingMailbox"] = item.GetValueOrDefault("GeneratingMailbox")?.ToString();
+            item["GeneratingMailbox"] = item.GetValueOrDefault("GeneratingMailbox")?.ToString() ?? "";
         return list;
     }
 
