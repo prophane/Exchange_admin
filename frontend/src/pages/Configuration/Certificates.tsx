@@ -90,12 +90,18 @@ export default function Certificates() {
 
   // ── Filtre pur front : dérivé de allCerts + selectedServer, JAMAIS un appel réseau ────────
   const certs = useMemo(() => {
-    if (!selectedServer) return allCerts;
+    console.log('[CERT-FILTER] selectedServer=', JSON.stringify(selectedServer), 'allCerts.length=', allCerts.length);
+    if (!selectedServer) {
+      console.log('[CERT-FILTER] → PAS DE FILTRE, retourne tout:', allCerts.length);
+      return allCerts;
+    }
     const wanted = selectedServer.toUpperCase();
-    return allCerts.filter((c) => {
+    const filtered = allCerts.filter((c) => {
       const srv = String(c.Server ?? '').toUpperCase();
       return srv === wanted || srv.startsWith(wanted + '.') || srv.startsWith(wanted + '\\');
     });
+    console.log('[CERT-FILTER] → FILTRE wanted=', wanted, 'result=', filtered.length, '/', allCerts.length);
+    return filtered;
   }, [allCerts, selectedServer]);
 
   // ── Chargement de TOUS les certificats (sans filtre serveur) ──────────────────────
@@ -571,7 +577,7 @@ export default function Certificates() {
             <Select
               style={{ width: 200 }}
               value={selectedServer || undefined}
-              onChange={(v) => setSelectedServer(v ?? '')}
+              onChange={(v) => { console.log('[CERT-SELECT] onChange v=', JSON.stringify(v)); setSelectedServer(v ?? ''); }}
               allowClear
               placeholder="Tous les serveurs"
               options={servers.map((s: any) => ({ value: s.Name ?? s.Fqdn, label: s.Name ?? s.Fqdn }))}
