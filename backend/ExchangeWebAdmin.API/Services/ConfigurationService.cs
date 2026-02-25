@@ -759,12 +759,21 @@ namespace ExchangeWebAdmin.API.Services
             _logger.LogInformation("Récupération des connecteurs de réception (serveur: {Server})", server ?? "tous");
             var srvParam = !string.IsNullOrEmpty(server) ? $"-Server '{server.Replace("'", "''")}' " : "";
 
-            var script = $@"
-                Get-ReceiveConnector {srvParam}| Select-Object Identity, Server, Enabled, MaxMessageSize, AuthMechanism, Bindings, RemoteIPRanges, RequireEHLODomain, SuppressXAnonymousTls, Fqdn
-            ";
-
-            var result = await _psService.ExecuteScriptAsync(script);
-            return result is List<Dictionary<string, object>> dictList ? dictList : new List<Dictionary<string, object>>();
+            // Propriétés compatibles Exchange 2010+ (RequireEHLODomain/SuppressXAnonymousTls = Exchange 2013+)
+            try
+            {
+                var script = $"Get-ReceiveConnector {srvParam}| Select-Object Identity, Name, Server, Enabled, MaxMessageSize, AuthMechanism, Bindings, RemoteIPRanges, Fqdn";
+                var result = await _psService.ExecuteScriptAsync(script);
+                return result is List<Dictionary<string, object>> dictList ? dictList : [];
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning("GetReceiveConnectors full props failed ({Msg}), retry minimal", ex.Message);
+                // Fallback minimal pour Exchange 2010 strict
+                var script = $"Get-ReceiveConnector {srvParam}| Select-Object Identity, Name, Server, Enabled, MaxMessageSize";
+                var result = await _psService.ExecuteScriptAsync(script);
+                return result is List<Dictionary<string, object>> dl ? dl : [];
+            }
         }
 
         public async Task CreateReceiveConnectorAsync(string name, string server, string[] bindings, string[]? remoteIPRanges, int? maxMessageSizeMB, bool enabled, string[]? authMechanism, string? fqdn)
@@ -837,12 +846,19 @@ namespace ExchangeWebAdmin.API.Services
         {
             _logger.LogInformation("Récupération des connecteurs d'envoi");
 
-            var script = @"
-                Get-SendConnector | Select-Object Identity, Enabled, MaxMessageSize, RequireTLS, TlsAuthLevel, TlsDomain, SmartHosts, AddressSpaces, Fqdn
-            ";
-
-            var result = await _psService.ExecuteScriptAsync(script);
-            return result is List<Dictionary<string, object>> dictList ? dictList : new List<Dictionary<string, object>>();
+            try
+            {
+                var script = "Get-SendConnector | Select-Object Identity, Name, Enabled, MaxMessageSize, RequireTLS, TlsAuthLevel, TlsDomain, SmartHosts, AddressSpaces, Fqdn";
+                var result = await _psService.ExecuteScriptAsync(script);
+                return result is List<Dictionary<string, object>> dictList ? dictList : [];
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning("GetSendConnectors full props failed ({Msg}), retry minimal", ex.Message);
+                var script = "Get-SendConnector | Select-Object Identity, Name, Enabled, MaxMessageSize, RequireTLS";
+                var result = await _psService.ExecuteScriptAsync(script);
+                return result is List<Dictionary<string, object>> dl ? dl : [];
+            }
         }
 
         public async Task CreateSendConnectorAsync(string name, string[] smartHosts, string[]? addressSpaces, int? maxMessageSizeMB, bool enabled, bool requireTls, string? tlsAuthLevel, string? tlsDomain, string? fqdn)
