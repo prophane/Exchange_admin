@@ -766,7 +766,7 @@ class ExchangeApiService {
     await this.api.delete(`/mailflow/rules/${encodeURIComponent(identity)}`);
   }
 
-  async trackMessages(params: { sender?: string; recipient?: string; start?: string; end?: string; maxResults?: number }): Promise<any[]> {
+  async trackMessages(params: { sender?: string; recipient?: string; start?: string; end?: string; maxResults?: number; eventId?: string }): Promise<any[]> {
     const response = await this.api.get<ApiResponse<any[]>>('/mailflow/tracking', { params });
     return response.data.data || [];
   }

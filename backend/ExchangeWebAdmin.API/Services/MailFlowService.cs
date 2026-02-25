@@ -11,7 +11,7 @@ public interface IMailFlowService
     Task DeleteTransportRuleAsync(string identity);
     // Suivi de messages
     Task<List<Dictionary<string, object>>> TrackMessagesAsync(
-        string? sender, string? recipient, DateTime? start, DateTime? end, int maxResults);
+        string? sender, string? recipient, DateTime? start, DateTime? end, int maxResults, string? eventId = null);
     // Connecteurs
     Task<List<Dictionary<string, object>>> GetSendConnectorsAsync();
     Task<List<Dictionary<string, object>>> GetReceiveConnectorsAsync();
@@ -110,15 +110,16 @@ public class MailFlowService : IMailFlowService
     // =========================================================================
 
     public async Task<List<Dictionary<string, object>>> TrackMessagesAsync(
-        string? sender, string? recipient, DateTime? start, DateTime? end, int maxResults)
+        string? sender, string? recipient, DateTime? start, DateTime? end, int maxResults, string? eventId = null)
     {
-        _logger.LogInformation("Suivi messages: {Sender} -> {Recipient}", sender, recipient);
+        _logger.LogInformation("Suivi messages: {Sender} -> {Recipient} event={EventId}", sender, recipient, eventId);
 
         var parts = new List<string>();
         if (!string.IsNullOrEmpty(sender))    parts.Add($"-Sender '{Esc(sender)}'");
         if (!string.IsNullOrEmpty(recipient)) parts.Add($"-Recipients '{Esc(recipient)}'");
         if (start.HasValue) parts.Add($"-Start '{start.Value:yyyy-MM-dd HH:mm:ss}'");
         if (end.HasValue)   parts.Add($"-End '{end.Value:yyyy-MM-dd HH:mm:ss}'");
+        if (!string.IsNullOrEmpty(eventId))   parts.Add($"-EventId '{Esc(eventId)}'");
         parts.Add($"-ResultSize {maxResults}");
 
         var script = $"Get-MessageTrackingLog {string.Join(" ", parts)} | Select-Object Timestamp, EventId, Source, Sender, Recipients, MessageSubject, ServerHostname, TotalBytes, MessageId";

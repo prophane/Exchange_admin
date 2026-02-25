@@ -198,11 +198,12 @@ public class MailFlowController : ControllerBase
         [FromQuery] string? recipient,
         [FromQuery] DateTime? start,
         [FromQuery] DateTime? end,
-        [FromQuery] int maxResults = 100)
+        [FromQuery] int maxResults = 100,
+        [FromQuery] string? eventId = null)
     {
         try
         {
-            var list = await _svc.TrackMessagesAsync(sender, recipient, start, end, maxResults);
+            var list = await _svc.TrackMessagesAsync(sender, recipient, start, end, maxResults, eventId);
             return Ok(new ApiResponse<List<Dictionary<string, object>>> { Success = true, Data = list });
         }
         catch (Exception ex) { return StatusCode(500, new ApiResponse<object> { Success = false, Error = ex.Message }); }
