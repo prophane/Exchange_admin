@@ -12,11 +12,11 @@ function Kill-Port($port, $label) {
         Write-Host "   --  $label   (port $port libre)" -ForegroundColor DarkGray
         return
     }
-    foreach ($pid in $pids) {
-        $proc = Get-Process -Id $pid -ErrorAction SilentlyContinue
+    foreach ($procId in $pids) {
+        $proc = Get-Process -Id $procId -ErrorAction SilentlyContinue
         if ($proc) {
-            Write-Host "   OK  $label  $($proc.ProcessName) (PID $pid)" -ForegroundColor Green
-            Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
+            Write-Host "   OK  $label  $($proc.ProcessName) (PID $procId)" -ForegroundColor Green
+            Stop-Process -Id $procId -Force -ErrorAction SilentlyContinue
         }
     }
 }
