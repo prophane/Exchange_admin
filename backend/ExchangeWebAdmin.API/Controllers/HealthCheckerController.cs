@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.IO.Compression;
 using System.Text;
 
 namespace ExchangeWebAdmin.API.Controllers;
@@ -80,12 +81,41 @@ public class HealthCheckerController : ControllerBase
                 || text.Contains("function ", StringComparison.OrdinalIgnoreCase));
     }
 
+    private static bool HasRequiredBundleFiles(string rootPath)
+    {
+        var required = new[]
+        {
+            Path.Combine(rootPath, "Diagnostics", "HealthChecker", "HealthChecker.ps1"),
+            Path.Combine(rootPath, "Diagnostics", "HealthChecker", "Helpers", "Get-ErrorsThatOccurred.ps1"),
+            Path.Combine(rootPath, "Diagnostics", "HealthChecker", "Writers", "Write-Functions.ps1"),
+            Path.Combine(rootPath, "Shared", "LoggerFunctions.ps1"),
+            Path.Combine(rootPath, "Shared", "Confirm-Administrator.ps1"),
+        };
+
+        return required.All(System.IO.File.Exists);
+    }
+
+    private static void CopyDirectory(string sourceDir, string destinationDir)
+    {
+        Directory.CreateDirectory(destinationDir);
+
+        foreach (var file in Directory.GetFiles(sourceDir, "*", SearchOption.AllDirectories))
+        {
+            var relative = Path.GetRelativePath(sourceDir, file);
+            var target = Path.Combine(destinationDir, relative);
+            var targetFolder = Path.GetDirectoryName(target);
+            if (!string.IsNullOrWhiteSpace(targetFolder))
+                Directory.CreateDirectory(targetFolder);
+            System.IO.File.Copy(file, target, overwrite: true);
+        }
+    }
+
     private async Task<string> EnsureHealthCheckerScriptAsync(string resultsPath)
     {
         Directory.CreateDirectory(resultsPath);
-        var scriptPath = Path.Combine(resultsPath, "HealthChecker.ps1");
+        var scriptPath = Path.Combine(resultsPath, "Diagnostics", "HealthChecker", "HealthChecker.ps1");
 
-        if (System.IO.File.Exists(scriptPath))
+        if (HasRequiredBundleFiles(resultsPath))
         {
             var existingBytes = await System.IO.File.ReadAllBytesAsync(scriptPath);
             if (IsValidHealthCheckerScript(existingBytes))
@@ -98,43 +128,63 @@ public class HealthCheckerController : ControllerBase
             _logger.LogWarning("Script HealthChecker local invalide, déplacé vers {BadPath}", badPath);
         }
 
-        _logger.LogInformation("Téléchargement du script HealthChecker dans {Path}", scriptPath);
-
-        var downloadUrls = new[]
+        // Nettoyage ancien mode (script standalone placé à la racine)
+        var oldStandalonePath = Path.Combine(resultsPath, "HealthChecker.ps1");
+        if (System.IO.File.Exists(oldStandalonePath))
         {
-            // URL directe du script brut (plus fiable pour les téléchargements automatisés)
-            "https://raw.githubusercontent.com/microsoft/CSS-Exchange/main/Diagnostics/HealthChecker/HealthChecker.ps1",
-            // Raccourci Microsoft (fallback)
-            "https://aka.ms/ExchangeHealthChecker"
-        };
+            var oldBadPath = Path.Combine(
+                resultsPath,
+                $"HealthChecker.standalone.old.{DateTime.Now:yyyyMMdd_HHmmss}.ps1");
+            System.IO.File.Move(oldStandalonePath, oldBadPath, overwrite: true);
+            _logger.LogInformation("Ancien script standalone déplacé vers {OldBadPath}", oldBadPath);
+        }
+
+        _logger.LogInformation("Téléchargement du bundle HealthChecker dans {Path}", resultsPath);
 
         using var http = new HttpClient();
 
-        foreach (var url in downloadUrls)
+        var zipUrl = "https://github.com/microsoft/CSS-Exchange/archive/refs/heads/main.zip";
+        var zipPath = Path.Combine(resultsPath, $"css-exchange-main-{DateTime.Now:yyyyMMddHHmmss}.zip");
+        var extractRoot = Path.Combine(resultsPath, $"_tmp_css_exchange_{Guid.NewGuid():N}");
+
+        try
         {
-            try
-            {
-                var bytes = await http.GetByteArrayAsync(url);
-                if (!IsValidHealthCheckerScript(bytes))
-                {
-                    _logger.LogWarning("Contenu téléchargé invalide depuis {Url} (non script PowerShell)", url);
-                    continue;
-                }
+            var zipBytes = await http.GetByteArrayAsync(zipUrl);
+            await System.IO.File.WriteAllBytesAsync(zipPath, zipBytes);
 
-                await System.IO.File.WriteAllBytesAsync(scriptPath, bytes);
-                _logger.LogInformation("Script HealthChecker téléchargé avec succès depuis {Url}", url);
-                return scriptPath;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Échec téléchargement HealthChecker depuis {Url}", url);
-            }
+            Directory.CreateDirectory(extractRoot);
+            ZipFile.ExtractToDirectory(zipPath, extractRoot, overwriteFiles: true);
+
+            var repoRoot = Directory.GetDirectories(extractRoot)
+                .FirstOrDefault(d => Path.GetFileName(d).StartsWith("CSS-Exchange-", StringComparison.OrdinalIgnoreCase));
+
+            if (string.IsNullOrWhiteSpace(repoRoot))
+                throw new InvalidOperationException("Archive CSS-Exchange invalide (racine introuvable)");
+
+            var srcHealthChecker = Path.Combine(repoRoot, "Diagnostics", "HealthChecker");
+            var srcShared = Path.Combine(repoRoot, "Shared");
+
+            if (!Directory.Exists(srcHealthChecker) || !Directory.Exists(srcShared))
+                throw new InvalidOperationException("Archive CSS-Exchange invalide (HealthChecker/Shared manquants)");
+
+            CopyDirectory(srcHealthChecker, Path.Combine(resultsPath, "Diagnostics", "HealthChecker"));
+            CopyDirectory(srcShared, Path.Combine(resultsPath, "Shared"));
+
+            if (!HasRequiredBundleFiles(resultsPath))
+                throw new InvalidOperationException("Bundle HealthChecker incomplet après extraction");
+
+            var scriptBytes = await System.IO.File.ReadAllBytesAsync(scriptPath);
+            if (!IsValidHealthCheckerScript(scriptBytes))
+                throw new InvalidOperationException("HealthChecker.ps1 extrait mais invalide");
+
+            _logger.LogInformation("Bundle HealthChecker téléchargé et extrait avec succès");
+            return scriptPath;
         }
-
-        throw new InvalidOperationException(
-            "Impossible de télécharger un script HealthChecker valide. "
-            + "Vérifiez l'accès Internet sortant (proxy/TLS) ou placez manuellement HealthChecker.ps1 "
-            + $"dans {resultsPath}.");
+        finally
+        {
+            try { if (System.IO.File.Exists(zipPath)) System.IO.File.Delete(zipPath); } catch { }
+            try { if (Directory.Exists(extractRoot)) Directory.Delete(extractRoot, recursive: true); } catch { }
+        }
     }
 
     private static string QuoteArg(string value)
@@ -161,6 +211,8 @@ public class HealthCheckerController : ControllerBase
                 args.Append(" -Server ");
                 args.Append(QuoteArg(server));
             }
+            args.Append(" -OutputFilePath ");
+            args.Append(QuoteArg(resultsPath));
 
             var psi = new ProcessStartInfo
             {
@@ -190,7 +242,7 @@ public class HealthCheckerController : ControllerBase
             state.Output = TrimOutput(stdOut);
             state.Error = TrimOutput(stdErr);
             state.EndedAt = DateTime.UtcNow;
-            state.Status = process.ExitCode == 0 ? "completed" : "failed";
+            state.Status = process.ExitCode == 0 && string.IsNullOrWhiteSpace(stdErr) ? "completed" : "failed";
         }
         catch (Exception ex)
         {
