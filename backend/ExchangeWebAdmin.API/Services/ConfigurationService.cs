@@ -99,16 +99,17 @@ namespace ExchangeWebAdmin.API.Services
             return names.Count > 0 ? string.Join(", ", names) : "None";
         }
 
-        public async Task EnableCertificateServicesAsync(string thumbprint, string server, string[] services)
+        public async Task EnableCertificateServicesAsync(string thumbprint, string server, string[] services, bool force = true)
         {
             if (services.Length == 0) return;
             var s = string.Join(",", services);
             var t = thumbprint.Replace("'", "''");
             var srv = server.Replace("'", "''");
             var serverArg = string.IsNullOrWhiteSpace(srv) ? "" : $" -Server '{srv}'";
-            _logger.LogInformation("Activation services {Services} pour certificat {Thumbprint} sur {Server}", s, thumbprint, server);
+            var forceArg  = force ? " -Force" : "";
+            _logger.LogInformation("Activation services {Services} pour certificat {Thumbprint} sur {Server} (force={Force})", s, thumbprint, server, force);
             await _psService.ExecuteScriptAsync(
-                $"Enable-ExchangeCertificate -Thumbprint '{t}'{serverArg} -Services {s} -Force -Confirm:$false");
+                $"Enable-ExchangeCertificate -Thumbprint '{t}'{serverArg} -Services {s}{forceArg} -Confirm:$false");
         }
 
         public async Task<Dictionary<string, object>?> GetCertificateAsync(string thumbprint)
@@ -273,6 +274,10 @@ namespace ExchangeWebAdmin.API.Services
             var pfxPwd = Guid.NewGuid().ToString("N")[..12];
 
             // ── Export depuis le serveur source (avec retry WinRM) ────────────
+            // Utilise -Path (fichier temp) plutôt que -BinaryEncoded pour éviter les problèmes
+            // de sérialisation PSRP : certaines versions d'Exchange retournent List`1 au lieu
+            // de byte[] lors du transfert binaire via WSMan.
+            var tempPfxPath = $@"C:\Windows\Temp\excert_{Guid.NewGuid():N}.pfx";
             byte[] pfxBytes = [];
             Exception? lastExportEx = null;
             for (int attempt = 1; attempt <= 3; attempt++)
@@ -289,40 +294,38 @@ namespace ExchangeWebAdmin.API.Services
                     foreach (var c in pfxPwd) exportPwd.AppendChar(c);
                     exportPwd.MakeReadOnly();
 
-                    var exportResult = await _psService.ExecuteScriptAsync("Export-ExchangeCertificate", new Dictionary<string, object>
+                    // -Path écrit le PFX sur le disque ; le fichier est ensuite lu en C#.
+                    // Évite toute sérialisation PSRP de byte[] (source du type=List`1).
+                    await _psService.ExecuteScriptAsync("Export-ExchangeCertificate", new Dictionary<string, object>
                     {
-                        ["Thumbprint"]    = thumbprint,
-                        ["Server"]        = fromServer,
-                        ["BinaryEncoded"] = true,
-                        ["Password"]      = exportPwd,
+                        ["Thumbprint"] = thumbprint,
+                        ["Server"]     = fromServer,
+                        ["Password"]   = exportPwd,
+                        ["Path"]       = tempPfxPath,
                     });
 
-                    if (exportResult is List<Dictionary<string, object>> rows && rows.Count > 0
-                        && rows[0].TryGetValue("_bytes", out var bytesVal) && bytesVal is byte[] exportedBytes && exportedBytes.Length > 0)
+                    if (File.Exists(tempPfxPath))
                     {
-                        pfxBytes = exportedBytes;
-                        _logger.LogInformation("Export réussi : {Bytes} octets", pfxBytes.Length);
+                        pfxBytes = await File.ReadAllBytesAsync(tempPfxPath);
+                        try { File.Delete(tempPfxPath); } catch { /* ignoré */ }
+                    }
+
+                    if (pfxBytes.Length > 0)
+                    {
+                        _logger.LogInformation("Export réussi via fichier : {Bytes} octets", pfxBytes.Length);
                         break;
                     }
-                    else if (exportResult is byte[] raw && raw.Length > 0)
-                    {
-                        pfxBytes = raw;
-                        _logger.LogInformation("Export réussi (raw) : {Bytes} octets", pfxBytes.Length);
-                        break;
-                    }
-                    else
-                    {
-                        var type = exportResult?.GetType()?.Name ?? "null";
-                        lastExportEx = new Exception(
-                            $"Export-ExchangeCertificate tentative {attempt} : aucune donnée binaire (type={type}). "
-                            + $"Vérifiez que le certificat existe sur {fromServer} et que la clé privée est exportable.");
-                        _logger.LogWarning("{Msg}", lastExportEx.Message);
-                    }
+
+                    lastExportEx = new Exception(
+                        $"Export-ExchangeCertificate tentative {attempt} : fichier PFX vide ou absent ({tempPfxPath}). "
+                        + $"Vérifiez que le certificat existe sur {fromServer} et que la clé privée est exportable.");
+                    _logger.LogWarning("{Msg}", lastExportEx.Message);
                 }
                 catch (Exception ex)
                 {
                     lastExportEx = ex;
                     _logger.LogWarning("Export tentative {N} échouée : {Msg}", attempt, ex.Message);
+                    try { if (File.Exists(tempPfxPath)) File.Delete(tempPfxPath); } catch { }
                 }
             }
 

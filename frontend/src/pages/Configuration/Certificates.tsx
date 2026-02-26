@@ -148,8 +148,8 @@ export default function Certificates() {
   // ── Par-wizard : serveur cible + déploiement multi-serveur ─────────────────
   const [caServer, setCaServer]               = useState<string>('');
   const [leServer, setLeServer]               = useState<string>('');
-  const [caFinalServices, setCaFinalServices] = useState<string[]>(['SMTP', 'IIS']);
-  const [leFinalServices, setLeFinalServices] = useState<string[]>(['SMTP', 'IIS']);
+  const [caFinalServices, setCaFinalServices] = useState<string[]>([]);
+  const [leFinalServices, setLeFinalServices] = useState<string[]>([]);
   const [caDeployTargets, setCaDeployTargets] = useState<string[]>([]);
   const [leDeployTargets, setLeDeployTargets] = useState<string[]>([]);
   const [deployBusy, setDeployBusy]           = useState(false);
@@ -193,7 +193,7 @@ export default function Certificates() {
     leForm.resetFields();
     leForm.setFieldsValue({
       domains: domains.join('\n'),
-      services: svcs.length ? svcs : ['SMTP', 'IIS'],
+      services: svcs.length ? svcs : ['SMTP'],
     });
     setLeStep(0);
     setLeError(null);
@@ -218,7 +218,7 @@ export default function Certificates() {
       domains: domains.join('\n'),
       friendlyName: String(cert.FriendlyName ?? (domains[0] ?? '')),
       keySize: '2048',
-      services: svcs.length ? svcs : ['SMTP', 'IIS'],
+      services: svcs.length ? svcs : ['SMTP'],
     });
     setCaStep(0);
     setCaError(null);
@@ -340,23 +340,38 @@ export default function Certificates() {
       const values = await editServForm.validateFields();
       const services: string[] = values.services ?? [];
       if (!services.length) { message.error('Sélectionnez au moins un service'); return; }
-      if (services.includes('SMTP')) {
+
+      let smtpForce = true;
+      const currentServices = parseServices(editServCert?.Services);
+      const smtpIsNew = services.includes('SMTP') && !currentServices.includes('SMTP');
+
+      if (smtpIsNew) {
+        let noReplace = false;
         const confirmed = await new Promise<boolean>((resolve) => {
           Modal.confirm({
-            title: 'Remplacer le certificat SMTP par défaut ?',
-            content: 'Activer SMTP sur ce certificat remplacera le certificat actuellement utilisé par défaut pour les connexions SMTP entrantes/sortantes. Continuer ?',
-            okText: 'Oui, remplacer',
+            title: 'Activer SMTP — confirmation',
+            content: (
+              <div>
+                <p style={{ marginTop: 0 }}>Activer SMTP remplacera généralement le certificat par défaut pour les connexions SMTP entrantes/sortantes.</p>
+                <Checkbox onChange={(e) => { noReplace = e.target.checked; }}>
+                  Activer SMTP sans remplacer le certificat par défaut
+                </Checkbox>
+              </div>
+            ),
+            okText: 'Confirmer',
             cancelText: 'Annuler',
             onOk: () => resolve(true),
             onCancel: () => resolve(false),
           });
         });
         if (!confirmed) return;
+        smtpForce = !noReplace;
       }
+
       setEditServBusy(true);
       const thumb = String(editServCert?.Thumbprint ?? '');
       const server = String(editServCert?.Server ?? '');
-      await exchangeApi.enableCertificateServices(thumb, server, services);
+      await exchangeApi.enableCertificateServices(thumb, server, services, smtpForce);
       message.success('Services mis à jour');
       setEditServOpen(false);
       load();
@@ -437,8 +452,7 @@ export default function Certificates() {
     const thumbprint = which === 'ca' ? caThumb : leThumbprint;
     const fromServer = which === 'ca' ? caServer : leServer;
     const targets    = which === 'ca' ? caDeployTargets : leDeployTargets;
-    const services   = (which === 'ca' ? caFinalServices : leFinalServices).length > 0
-      ? (which === 'ca' ? caFinalServices : leFinalServices) : ['SMTP', 'IIS'];
+    const services   = which === 'ca' ? caFinalServices : leFinalServices;
     if (!thumbprint || !fromServer || !targets.length) return;
     setDeployBusy(true);
     const results: Record<string, 'ok' | string> = {};
@@ -688,7 +702,7 @@ export default function Certificates() {
                 </Form.Item>
               </Space.Compact>
             </Form.Item>
-            <Form.Item name="services" label="Services Exchange à activer" initialValue={['SMTP', 'IIS']}>
+            <Form.Item name="services" label="Services Exchange à activer" initialValue={['SMTP']}>
               <Checkbox.Group options={['SMTP', 'IIS', 'IMAP', 'POP']} />
             </Form.Item>            <Form.Item name="staging" valuePropName="checked" initialValue={false}
               extra={<span style={{color:'#ff7a00'}}>Mode staging : certificat non reconnu par les navigateurs, mais sans limite de taux — à utiliser pour les tests</span>}>
@@ -917,7 +931,7 @@ export default function Certificates() {
                   { label: '4096 bits', value: '4096' },
                 ]} />
               </Form.Item>
-              <Form.Item name="services" label="Services" initialValue={['SMTP', 'IIS']} style={{ marginBottom: 0 }}>
+              <Form.Item name="services" label="Services" initialValue={['SMTP']} style={{ marginBottom: 0 }}>
                 <Checkbox.Group options={['SMTP', 'IIS', 'IMAP', 'POP']} />
               </Form.Item>
             </Space>
@@ -964,7 +978,7 @@ export default function Certificates() {
               <Form.Item name="pfxPassword" label="Mot de passe PFX" extra="Uniquement pour les fichiers PFX (laissez vide pour PKCS#7/PEM)">
                 <Input.Password placeholder="(optionnel)" />
               </Form.Item>
-              <Form.Item name="importServices" label="Services à activer" initialValue={['SMTP', 'IIS']}>
+              <Form.Item name="importServices" label="Services à activer" initialValue={['SMTP']}>
                 <Checkbox.Group options={['SMTP', 'IIS', 'IMAP', 'POP']} />
               </Form.Item>
             </Form>

@@ -306,8 +306,8 @@ class ExchangeApiService {
     return response.data;
   }
 
-  async enableCertificateServices(thumbprint: string, server: string, services: string[]): Promise<void> {
-    await this.api.post(`/certificates/${encodeURIComponent(thumbprint)}/services`, { server, services });
+  async enableCertificateServices(thumbprint: string, server: string, services: string[], force = true): Promise<void> {
+    await this.api.post(`/certificates/${encodeURIComponent(thumbprint)}/services`, { server, services, force });
   }
 
   async deleteCertificate(thumbprint: string, server?: string): Promise<void> {
@@ -335,7 +335,7 @@ class ExchangeApiService {
       DomainNames: data.domainNames,
       FriendlyName: data.friendlyName ?? data.domainNames[0],
       KeySize: data.keySize ?? 2048,
-      Services: data.services ?? ['SMTP', 'IIS'],
+      Services: data.services ?? ['SMTP'],
     });
     return response.data;
   }

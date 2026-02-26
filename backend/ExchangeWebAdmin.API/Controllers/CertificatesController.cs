@@ -29,19 +29,23 @@ namespace ExchangeWebAdmin.API.Controllers
     {
         public string FromServer { get; set; } = string.Empty;
         public string ToServer { get; set; } = string.Empty;
-        public string[] Services { get; set; } = ["SMTP", "IIS"];
+        /// <summary>Services à activer sur le serveur cible. Vide = aucune activation de service.</summary>
+        public string[] Services { get; set; } = [];
     }
 
     public class EnableCertServicesRequest
     {
         public string Server { get; set; } = string.Empty;
         public string[] Services { get; set; } = [];
+        /// <summary>Si true (défaut), ajoute -Force à Enable-ExchangeCertificate (remplace le cert SMTP par défaut).
+        /// Si false, omit -Force — utile pour activer SMTP sans changer le cert par défaut.</summary>
+        public bool Force { get; set; } = true;
     }
 
     public class RenewCertificateRequest
     {
         public string Server { get; set; } = string.Empty;
-        public string[] Services { get; set; } = ["SMTP", "IIS"];
+        public string[] Services { get; set; } = ["SMTP"];
     }
 
     public class NewCertificateRequestDto
@@ -51,7 +55,7 @@ namespace ExchangeWebAdmin.API.Controllers
         public string[] DomainNames { get; set; } = [];
         public string FriendlyName { get; set; } = string.Empty;
         public int KeySize { get; set; } = 2048;
-        public string[] Services { get; set; } = ["SMTP", "IIS"];
+        public string[] Services { get; set; } = ["SMTP"];
     }
 
     public class ImportCertificateResponseDto
@@ -59,7 +63,7 @@ namespace ExchangeWebAdmin.API.Controllers
         public string Server { get; set; } = string.Empty;
         /// <summary>Certificat PKCS#7 ou PFX encodé en base64</summary>
         public string Base64Certificate { get; set; } = string.Empty;
-        public string[] Services { get; set; } = ["SMTP", "IIS"];
+        public string[] Services { get; set; } = ["SMTP"];
         /// <summary>Mot de passe PFX (optionnel)</summary>
         public string? PfxPassword { get; set; }
     }
@@ -136,7 +140,7 @@ namespace ExchangeWebAdmin.API.Controllers
                 if (string.IsNullOrWhiteSpace(thumbprint))
                     return BadRequest(new { success = false, error = "Thumbprint requis" });
 
-                await _configService.EnableCertificateServicesAsync(thumbprint, req.Server ?? string.Empty, req.Services ?? []);
+                await _configService.EnableCertificateServicesAsync(thumbprint, req.Server ?? string.Empty, req.Services ?? [], req.Force);
                 return Ok(new { success = true });
             }
             catch (Exception ex)
