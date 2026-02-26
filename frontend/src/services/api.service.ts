@@ -782,6 +782,19 @@ class ExchangeApiService {
   }
 
   // ============================================================================
+  // HealthChecker
+  // ============================================================================
+
+  async getHealthCheckerReports(): Promise<{ path: string; reports: Array<{ fileName: string; extension: string; sizeBytes: number; lastWriteTime: string; }> }> {
+    const response = await this.api.get('/healthchecker/reports');
+    return response.data?.data ?? { path: '', reports: [] };
+  }
+
+  getHealthCheckerReportUrl(fileName: string): string {
+    return `/api/healthchecker/reports/${encodeURIComponent(fileName)}`;
+  }
+
+  // ============================================================================
   // System
   // ============================================================================
 

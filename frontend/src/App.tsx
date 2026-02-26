@@ -17,6 +17,7 @@ import {
   MobileOutlined,
   FolderOutlined,
   FilterOutlined,
+  FileSearchOutlined,
 } from '@ant-design/icons';
 
 // Auth
@@ -44,6 +45,7 @@ import MobilePage from './pages/Mobile/MobilePage';
 import PublicFolderPage from './pages/PublicFolders/PublicFolderPage';
 // Pages — Serveurs
 import ServersPage from './pages/Servers/ServersPage';
+import HealthCheckerPage from './pages/HealthChecker/HealthCheckerPage';
 // Dashboard
 import Dashboard from './pages/Dashboard';
 import CmdletLogDrawer from './components/CmdletLogDrawer';
@@ -56,6 +58,7 @@ function getSelectedKey(pathname: string, search: string): string {
   if (pathname.startsWith('/mailboxes') || pathname.startsWith('/recipients') || pathname.startsWith('/groups')) return '/recipients';
   if (pathname.startsWith('/mailflow')) return '/mailflow' + search;
   if (pathname.startsWith('/servers') || pathname.startsWith('/databases') || pathname.startsWith('/config/certificates') || pathname.startsWith('/config/virtual-directories')) return '/servers';
+  if (pathname.startsWith('/healthchecker')) return '/healthchecker';
   return pathname;
 }
 
@@ -123,6 +126,12 @@ function AppShell() {
       key: '/servers',
       icon: <CloudServerOutlined />,
       label: <Link to="/servers">Serveurs</Link>,
+    },
+    // 10. HEALTHCHECKER
+    {
+      key: '/healthchecker',
+      icon: <FileSearchOutlined />,
+      label: <Link to="/healthchecker">HealthChecker</Link>,
     },
   ];
 
@@ -219,6 +228,7 @@ function AppShell() {
               <Route path="/mobile" element={<MobilePage />} />
               <Route path="/public-folders" element={<PublicFolderPage />} />
               <Route path="/servers" element={<ServersPage />} />
+              <Route path="/healthchecker" element={<HealthCheckerPage />} />
               <Route path="/organization" element={<Organization />} />
             </Routes>
           </Content>
