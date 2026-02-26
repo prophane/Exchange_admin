@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Alert, Button, Input, Space, Table, Tag, Typography, message } from 'antd';
+import { Alert, Button, Input, Select, Space, Table, Tag, Typography, message } from 'antd';
 import { FileSearchOutlined, ReloadOutlined, DownloadOutlined, LinkOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
@@ -25,7 +25,8 @@ export default function HealthCheckerPage() {
   const [loading, setLoading] = useState(false);
   const [reports, setReports] = useState<HealthCheckerReport[]>([]);
   const [resultsPath, setResultsPath] = useState('');
-  const [server, setServer] = useState('outlook.prophane.net');
+  const [server, setServer] = useState('');
+  const [servers, setServers] = useState<Array<{ name: string }>>([]);
 
   const load = async () => {
     setLoading(true);
@@ -40,7 +41,18 @@ export default function HealthCheckerPage() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    exchangeApi.getExchangeServers()
+      .then((srv: any[]) => {
+        setServers(srv.map((s: any) => ({ name: s.Name || s.name || s.Identity || '' })).filter((s: { name: string }) => s.name));
+        if (!server && srv.length > 0) {
+          const firstName = srv[0].Name || srv[0].name || srv[0].Identity || '';
+          if (firstName) setServer(firstName);
+        }
+      })
+      .catch(() => { /* ignore – user can type manually */ });
+  }, []);
 
   const manualCommand = [
     `$resultsPath = '${resultsPath || 'C:\\Logs\\ExchangeHealthChecker'}'`,
@@ -123,12 +135,26 @@ export default function HealthCheckerPage() {
         message="Commande à lancer manuellement (Exchange Management Shell en Administrateur)"
         description={
           <Space direction="vertical" size={8} style={{ width: '100%' }}>
-            <Input
-              style={{ width: 320 }}
-              value={server}
-              onChange={(e) => setServer(e.target.value)}
-              placeholder="Serveur Exchange"
-            />
+            <Space>
+              <Text strong>Serveur Exchange :</Text>
+              {servers.length > 0 ? (
+                <Select
+                  style={{ width: 280 }}
+                  value={server || undefined}
+                  onChange={(v) => setServer(v)}
+                  placeholder="Sélectionner un serveur"
+                  showSearch
+                  options={servers.map((s) => ({ label: s.name, value: s.name }))}
+                />
+              ) : (
+                <Input
+                  style={{ width: 280 }}
+                  value={server}
+                  onChange={(e) => setServer(e.target.value)}
+                  placeholder="Nom du serveur Exchange (ex: YOUREXCHANGE01)"
+                />
+              )}
+            </Space>
             <Input.TextArea
               rows={5}
               readOnly
