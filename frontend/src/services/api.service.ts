@@ -790,14 +790,26 @@ class ExchangeApiService {
     return response.data?.data ?? { path: '', reports: [] };
   }
 
-  async startHealthCheckerRun(server?: string): Promise<{ runId: string; status: string; startedAt: string; server?: string }> {
-    const response = await this.api.post('/healthchecker/run', { server });
-    return response.data?.data;
-  }
-
-  async getHealthCheckerRunStatus(runId: string): Promise<{ runId: string; status: string; server?: string; startedAt: string; endedAt?: string; exitCode?: number; output?: string; error?: string }> {
-    const response = await this.api.get(`/healthchecker/run/${encodeURIComponent(runId)}`);
-    return response.data?.data;
+  async getHealthCheckerAnalysis(): Promise<{
+    servers: Array<{
+      serverName: string;
+      reportDate: string;
+      fileName: string;
+      htmlFileName?: string;
+      exchangeVersion: string;
+      serverRole: string;
+      osVersion: string;
+      overallStatus: 'red' | 'yellow' | 'green';
+      summary: { red: number; yellow: number; green: number; info: number };
+      sections: Array<{
+        title: string;
+        items: Array<{ name: string; value: string; severity: string }>;
+      }>;
+      fileSize: number;
+    }>;
+  }> {
+    const response = await this.api.get('/healthchecker/analysis');
+    return response.data?.data ?? { servers: [] };
   }
 
   getHealthCheckerReportUrl(fileName: string): string {

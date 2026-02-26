@@ -430,4 +430,220 @@ public class HealthCheckerController : ControllerBase
             return StatusCode(500, new { success = false, error = ex.Message });
         }
     }
+
+    // ──────────────────────────────────────────────
+    // Analysis endpoint – parse TXT reports
+    // ──────────────────────────────────────────────
+
+    [HttpGet("analysis")]
+    public IActionResult GetAnalysis()
+    {
+        try
+        {
+            var resultsPath = GetResultsPath();
+            if (!Directory.Exists(resultsPath))
+                return Ok(new { success = true, data = new { servers = new List<object>() } });
+
+            var txtFiles = Directory.GetFiles(resultsPath, "HealthChecker-*.txt")
+                .Where(f => !Path.GetFileName(f).Contains("Debug", StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(f => System.IO.File.GetLastWriteTimeUtc(f))
+                .ToList();
+
+            var servers = new List<object>();
+            foreach (var filePath in txtFiles)
+            {
+                try
+                {
+                    var fileName = Path.GetFileName(filePath);
+                    var (serverName, reportDate) = ParseReportFileName(fileName);
+                    var content = System.IO.File.ReadAllText(filePath, Encoding.UTF8);
+                    var sections = ParseReportSections(content);
+                    var exchangeVersion = ExtractValue(sections, "Exchange Information", "Version");
+                    var serverRole = ExtractValue(sections, "Exchange Information", "Role");
+                    var osVersion = ExtractValue(sections, "Operating System Information", "Operating System");
+                    var buildNumber = ExtractValue(sections, "Exchange Information", "Build");
+
+                    // Count findings
+                    int red = 0, yellow = 0, green = 0, info = 0;
+                    foreach (var sec in sections)
+                        foreach (var item in sec.Items)
+                            switch (item.Severity) { case "red": red++; break; case "yellow": yellow++; break; case "green": green++; break; default: info++; break; }
+
+                    var htmlFile = Path.ChangeExtension(filePath, ".html");
+                    var hasHtml = System.IO.File.Exists(htmlFile);
+
+                    servers.Add(new
+                    {
+                        serverName,
+                        reportDate,
+                        fileName,
+                        htmlFileName = hasHtml ? Path.GetFileName(htmlFile) : (string?)null,
+                        exchangeVersion = exchangeVersion ?? buildNumber ?? "—",
+                        serverRole = serverRole ?? "—",
+                        osVersion = osVersion ?? "—",
+                        overallStatus = red > 0 ? "red" : yellow > 0 ? "yellow" : "green",
+                        summary = new { red, yellow, green, info },
+                        sections = sections.Select(s => new
+                        {
+                            title = s.Title,
+                            items = s.Items.Select(i => new { name = i.Name, value = i.Value, severity = i.Severity }).ToList()
+                        }).ToList(),
+                        fileSize = new FileInfo(filePath).Length
+                    });
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to parse report: {File}", filePath);
+                }
+            }
+
+            return Ok(new { success = true, data = new { servers } });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error analyzing HealthChecker reports");
+            return StatusCode(500, new { success = false, error = ex.Message });
+        }
+    }
+
+    // ── Parsing helpers ──
+
+    private static (string serverName, string reportDate) ParseReportFileName(string fileName)
+    {
+        // Pattern: HealthChecker-SERVERNAME-YYYYMMDDHHMMSS.txt
+        var nameNoExt = Path.GetFileNameWithoutExtension(fileName);
+        var prefix = "HealthChecker-";
+        if (!nameNoExt.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            return (nameNoExt, "");
+
+        var rest = nameNoExt[prefix.Length..];
+        // Find the last dash followed by 14 digits (timestamp)
+        var lastDash = rest.LastIndexOf('-');
+        if (lastDash > 0 && rest.Length - lastDash - 1 >= 14)
+        {
+            var datePart = rest[(lastDash + 1)..];
+            var serverPart = rest[..lastDash];
+            // Parse date: YYYYMMDDHHMMSS
+            if (datePart.Length >= 14 &&
+                DateTime.TryParseExact(datePart[..14], "yyyyMMddHHmmss", null,
+                    System.Globalization.DateTimeStyles.None, out var dt))
+            {
+                return (serverPart, dt.ToString("yyyy-MM-dd HH:mm:ss"));
+            }
+            return (serverPart, datePart);
+        }
+        return (rest, "");
+    }
+
+    private record ReportSection(string Title, List<ReportItem> Items);
+    private record ReportItem(string Name, string Value, string Severity);
+
+    private static List<ReportSection> ParseReportSections(string content)
+    {
+        var sections = new List<ReportSection>();
+        var lines = content.Split('\n').Select(l => l.TrimEnd('\r')).ToArray();
+
+        string? currentTitle = null;
+        var currentItems = new List<ReportItem>();
+
+        for (int i = 0; i < lines.Length; i++)
+        {
+            var line = lines[i];
+            var trimmed = line.Trim();
+
+            // Section header: line between ====== separators
+            if (trimmed.StartsWith("===") && trimmed.EndsWith("===") && trimmed.Length > 10)
+            {
+                // Next non-empty line is the title
+                if (i + 1 < lines.Length)
+                {
+                    var nextLine = lines[i + 1].Trim();
+                    if (!string.IsNullOrEmpty(nextLine) && !nextLine.StartsWith("==="))
+                    {
+                        // Save previous section
+                        if (currentTitle != null && currentItems.Count > 0)
+                            sections.Add(new ReportSection(currentTitle, new List<ReportItem>(currentItems)));
+
+                        currentTitle = nextLine;
+                        currentItems.Clear();
+                        i++; // skip the title line
+                        // skip next separator if present
+                        if (i + 1 < lines.Length && lines[i + 1].Trim().StartsWith("==="))
+                            i++;
+                        continue;
+                    }
+                }
+                continue;
+            }
+
+            // Key-value pairs (tab-indented, colon-separated)
+            if (currentTitle != null && !string.IsNullOrWhiteSpace(trimmed) && trimmed.Contains(':'))
+            {
+                var colonIdx = trimmed.IndexOf(':');
+                if (colonIdx > 0 && colonIdx < trimmed.Length - 1)
+                {
+                    var name = trimmed[..colonIdx].Trim();
+                    var value = trimmed[(colonIdx + 1)..].Trim();
+                    if (name.Length > 0 && name.Length < 120)
+                    {
+                        var severity = ClassifySeverity(name, value);
+                        currentItems.Add(new ReportItem(name, value, severity));
+                    }
+                }
+            }
+            else if (currentTitle != null && !string.IsNullOrWhiteSpace(trimmed) && trimmed.Length > 3)
+            {
+                // Non key-value line (description, finding, etc.)
+                var severity = ClassifySeverity(trimmed, "");
+                currentItems.Add(new ReportItem(trimmed, "", severity));
+            }
+        }
+
+        // Save last section
+        if (currentTitle != null && currentItems.Count > 0)
+            sections.Add(new ReportSection(currentTitle, new List<ReportItem>(currentItems)));
+
+        return sections;
+    }
+
+    private static readonly string[] RedKeywords = {
+        "failed", "error", "vulnerable", "cve-", "critical", "unsupported",
+        "not patched", "not supported", "exposed", "out of date",
+        "security update", "immediate", "action required", "su required",
+        "not installed", "misconfigured", "open relay"
+    };
+    private static readonly string[] YellowKeywords = {
+        "warning", "recommended", "consider", "outdated", "should",
+        "not configured", "not enabled", "not ideal", "not recommended",
+        "disabled", "legacy", "deprecated", "missing", "mismatch",
+        "non-optimal", "slow", "high", "low memory", "old"
+    };
+    private static readonly string[] GreenKeywords = {
+        "passed", "ok", "supported", "enabled", "configured correctly",
+        "up to date", "installed", "compliant", "secure", "optimal"
+    };
+
+    private static string ClassifySeverity(string name, string value)
+    {
+        var combined = $"{name} {value}".ToLowerInvariant();
+
+        foreach (var kw in RedKeywords)
+            if (combined.Contains(kw)) return "red";
+        foreach (var kw in GreenKeywords)
+            if (combined.Contains(kw)) return "green";
+        foreach (var kw in YellowKeywords)
+            if (combined.Contains(kw)) return "yellow";
+
+        return "info";
+    }
+
+    private static string? ExtractValue(List<ReportSection> sections, string sectionSubstring, string nameSubstring)
+    {
+        var section = sections.FirstOrDefault(s =>
+            s.Title.Contains(sectionSubstring, StringComparison.OrdinalIgnoreCase));
+        if (section == null) return null;
+        var item = section.Items.FirstOrDefault(i =>
+            i.Name.Contains(nameSubstring, StringComparison.OrdinalIgnoreCase));
+        return item?.Value;
+    }
 }
