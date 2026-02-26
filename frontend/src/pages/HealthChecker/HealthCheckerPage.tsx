@@ -25,6 +25,7 @@ export default function HealthCheckerPage() {
   const [loading, setLoading] = useState(false);
   const [reports, setReports] = useState<HealthCheckerReport[]>([]);
   const [resultsPath, setResultsPath] = useState('');
+  const [server, setServer] = useState('outlook.prophane.net');
 
   const load = async () => {
     setLoading(true);
@@ -40,6 +41,13 @@ export default function HealthCheckerPage() {
   };
 
   useEffect(() => { load(); }, []);
+
+  const manualCommand = [
+    `$resultsPath = '${resultsPath || 'C:\\Logs\\ExchangeHealthChecker'}'`,
+    `New-Item -ItemType Directory -Path $resultsPath -Force | Out-Null`,
+    `Set-Location \"$resultsPath\\Diagnostics\\HealthChecker\"`,
+    `./HealthChecker.ps1 -Server '${server}' -OutputFilePath $resultsPath`,
+  ].join('\n');
 
   const openReport = (fileName: string) => {
     const url = exchangeApi.getHealthCheckerReportUrl(fileName);
@@ -104,6 +112,38 @@ export default function HealthCheckerPage() {
             </a>
             {resultsPath ? <Text type="secondary">Dossier des résultats : {resultsPath}</Text> : null}
             <Text type="secondary">Exécutez HealthChecker manuellement en Exchange Management Shell (Administrateur), puis cliquez sur « Actualiser les résultats ».</Text>
+          </Space>
+        }
+      />
+
+      <Alert
+        type="warning"
+        showIcon
+        style={{ marginBottom: 16 }}
+        message="Commande à lancer manuellement (Exchange Management Shell en Administrateur)"
+        description={
+          <Space direction="vertical" size={8} style={{ width: '100%' }}>
+            <Input
+              style={{ width: 320 }}
+              value={server}
+              onChange={(e) => setServer(e.target.value)}
+              placeholder="Serveur Exchange"
+            />
+            <Input.TextArea
+              rows={5}
+              readOnly
+              value={manualCommand}
+              style={{ fontFamily: 'Consolas, monospace' }}
+            />
+            <Button
+              size="small"
+              onClick={async () => {
+                await navigator.clipboard.writeText(manualCommand);
+                message.success('Commande copiée');
+              }}
+            >
+              Copier la commande
+            </Button>
           </Space>
         }
       />
