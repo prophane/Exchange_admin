@@ -81,6 +81,7 @@ Serveur Exchange (WinRM HTTPS port 443)
 - Groupes de disponibilité (DAG)
 - Bases de données — Montage, taille, backups
 - Certificats — Expiration, services assignés
+- HealthChecker — lancement de l'analyse depuis l'application + consultation des rapports
 - **Répertoires Virtuels** :
   - OWA (Outlook Web App)
   - ECP (Exchange Control Panel)
@@ -123,6 +124,21 @@ Fichier : `backend/ExchangeWebAdmin.API/appsettings.json`
 ```
 
 Plusieurs infrastructures peuvent être définies — elles apparaissent dans le sélecteur au login.
+
+### HealthChecker
+
+Configurer le dossier des rapports dans `backend/ExchangeWebAdmin.API/appsettings.json` :
+
+```json
+"HealthChecker": {
+  "ResultsPath": "C:\\Logs\\ExchangeHealthChecker"
+}
+```
+
+Depuis l'UI (`/healthchecker`) :
+- bouton **Lancer l'analyse**,
+- suivi d'état (queued/running/completed/failed),
+- actualisation et téléchargement des rapports générés.
 
 ---
 

@@ -39,6 +39,21 @@ cd ..
 Éditer `backend/ExchangeWebAdmin.API/appsettings.json` :
 - `ExchangeInfrastructures` : renseigner le FQDN et l'URL PowerShell de votre serveur Exchange
 - `JwtSettings.SecretKey` : changer la clé JWT (min. 32 caractères)
+- `HealthChecker.ResultsPath` : dossier où HealthChecker écrit les rapports (ex: `C:\Logs\ExchangeHealthChecker`)
+
+## HealthChecker (menu + exécution depuis l'application)
+
+- Menu disponible : **HealthChecker**
+- L'application peut :
+	- lancer l'analyse HealthChecker (`POST /api/healthchecker/run`),
+	- suivre l'état d'exécution (`GET /api/healthchecker/run/{runId}`),
+	- lister les rapports (`GET /api/healthchecker/reports`),
+	- ouvrir/télécharger un rapport (`GET /api/healthchecker/reports/{fileName}`).
+
+Prérequis côté serveur backend :
+- `powershell.exe` disponible,
+- droits d'écriture sur `HealthChecker.ResultsPath`,
+- accès Internet sortant vers `https://aka.ms/ExchangeHealthChecker` (téléchargement auto du script s'il est absent).
 
 ## Démarrage
 
