@@ -332,7 +332,7 @@ namespace ExchangeWebAdmin.API.Controllers
                 if (string.IsNullOrWhiteSpace(req.OrderId))
                     return BadRequest(new { success = false, error = "orderId requis" });
 
-                var services = req.Services?.Length > 0 ? req.Services : ["SMTP", "IIS"];
+                var services = req.Services ?? [];
                 var thumbprint = await _letsEncryptService.ValidateAndImportAsync(req.OrderId, services, req.Server);
 
                 return Ok(new { success = true, thumbprint });
