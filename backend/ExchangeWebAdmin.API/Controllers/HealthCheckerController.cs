@@ -60,21 +60,81 @@ public class HealthCheckerController : ControllerBase
         return text[^maxChars..];
     }
 
+    private static bool IsValidHealthCheckerScript(byte[] bytes)
+    {
+        if (bytes == null || bytes.Length < 200) return false;
+
+        var text = Encoding.UTF8.GetString(bytes);
+        var start = text.Length > 2000 ? text[..2000] : text;
+
+        // Cas fréquent d'échec de téléchargement: page HTML/proxy/erreur
+        if (start.Contains("<!DOCTYPE", StringComparison.OrdinalIgnoreCase)
+            || start.Contains("<html", StringComparison.OrdinalIgnoreCase)
+            || start.Contains("<head", StringComparison.OrdinalIgnoreCase)
+            || start.Contains("<body", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        // Signature simple attendue d'un script PowerShell HealthChecker
+        return text.Contains("HealthChecker", StringComparison.OrdinalIgnoreCase)
+            && (text.Contains("param(", StringComparison.OrdinalIgnoreCase)
+                || text.Contains("function ", StringComparison.OrdinalIgnoreCase));
+    }
+
     private async Task<string> EnsureHealthCheckerScriptAsync(string resultsPath)
     {
         Directory.CreateDirectory(resultsPath);
         var scriptPath = Path.Combine(resultsPath, "HealthChecker.ps1");
 
         if (System.IO.File.Exists(scriptPath))
-            return scriptPath;
+        {
+            var existingBytes = await System.IO.File.ReadAllBytesAsync(scriptPath);
+            if (IsValidHealthCheckerScript(existingBytes))
+                return scriptPath;
+
+            var badPath = Path.Combine(
+                resultsPath,
+                $"HealthChecker.invalid.{DateTime.Now:yyyyMMdd_HHmmss}.txt");
+            System.IO.File.Move(scriptPath, badPath, overwrite: true);
+            _logger.LogWarning("Script HealthChecker local invalide, déplacé vers {BadPath}", badPath);
+        }
 
         _logger.LogInformation("Téléchargement du script HealthChecker dans {Path}", scriptPath);
 
-        using var http = new HttpClient();
-        var bytes = await http.GetByteArrayAsync("https://aka.ms/ExchangeHealthChecker");
-        await System.IO.File.WriteAllBytesAsync(scriptPath, bytes);
+        var downloadUrls = new[]
+        {
+            // URL directe du script brut (plus fiable pour les téléchargements automatisés)
+            "https://raw.githubusercontent.com/microsoft/CSS-Exchange/main/Diagnostics/HealthChecker/HealthChecker.ps1",
+            // Raccourci Microsoft (fallback)
+            "https://aka.ms/ExchangeHealthChecker"
+        };
 
-        return scriptPath;
+        using var http = new HttpClient();
+
+        foreach (var url in downloadUrls)
+        {
+            try
+            {
+                var bytes = await http.GetByteArrayAsync(url);
+                if (!IsValidHealthCheckerScript(bytes))
+                {
+                    _logger.LogWarning("Contenu téléchargé invalide depuis {Url} (non script PowerShell)", url);
+                    continue;
+                }
+
+                await System.IO.File.WriteAllBytesAsync(scriptPath, bytes);
+                _logger.LogInformation("Script HealthChecker téléchargé avec succès depuis {Url}", url);
+                return scriptPath;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Échec téléchargement HealthChecker depuis {Url}", url);
+            }
+        }
+
+        throw new InvalidOperationException(
+            "Impossible de télécharger un script HealthChecker valide. "
+            + "Vérifiez l'accès Internet sortant (proxy/TLS) ou placez manuellement HealthChecker.ps1 "
+            + $"dans {resultsPath}.");
     }
 
     private static string QuoteArg(string value)
