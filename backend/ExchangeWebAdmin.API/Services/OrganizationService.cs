@@ -299,7 +299,7 @@ public class OrganizationService
 
     public async Task<List<Dictionary<string, object>>> GetRoleAssignmentPoliciesAsync() =>
         await SafeListAsync(
-            @"Get-RoleAssignmentPolicy | Select-Object Name, Description, IsDefault, WhenChanged",
+            @"Get-RoleAssignmentPolicy | Select-Object Name, Description, IsDefault, WhenChanged, @{N='AssignedRoles';E={$_.AssignedRoles -join ','}}",
             "Get-RoleAssignmentPolicy");
 
     public async Task CreateRoleAssignmentPolicyAsync(string name, string? description)

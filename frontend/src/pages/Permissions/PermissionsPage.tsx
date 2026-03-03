@@ -237,7 +237,6 @@ function AssignmentPoliciesTab() {
   const [editVisible, setEditVisible] = useState(false);
   const [editTarget, setEditTarget] = useState<any>(null);
   const [editLoading, setEditLoading] = useState(false);
-  const [editRolesLoading, setEditRolesLoading] = useState(false);
   const [editForm] = Form.useForm();
   // Rôles
   const [initialRoles, setInitialRoles] = useState<Set<string>>(new Set());
@@ -266,20 +265,16 @@ function AssignmentPoliciesTab() {
     } finally { setCreateLoading(false); }
   };
 
-  const openEdit = async (row: any) => {
+  const openEdit = (row: any) => {
     setEditTarget(row);
     editForm.setFieldsValue({ newName: row.Name, description: row.Description ?? '', isDefault: !!row.IsDefault });
-    setSelectedRoles(new Set());
-    setInitialRoles(new Set());
+    // AssignedRoles est une chaîne CSV récupérée directement depuis le GET
+    const assigned = new Set<string>(
+      String(row.AssignedRoles ?? '').split(',').map((s: string) => s.trim()).filter(Boolean)
+    );
+    setInitialRoles(assigned);
+    setSelectedRoles(new Set(assigned));
     setEditVisible(true);
-    setEditRolesLoading(true);
-    try {
-      const policyRoles = await exchangeApi.getPolicyRoles(row.Name);
-      const assigned = new Set<string>(policyRoles);
-      setInitialRoles(assigned);
-      setSelectedRoles(new Set(assigned));
-    } catch (e: any) { message.error(`Erreur chargement rôles: ${e.message}`); }
-    finally { setEditRolesLoading(false); }
   };
 
   const handleEdit = async () => {
@@ -391,10 +386,7 @@ function AssignmentPoliciesTab() {
           </Form.Item>
         </Form>
         <Divider orientation="left" style={{ marginTop: 0 }}>Rôles assignés</Divider>
-        {editRolesLoading ? (
-          <div style={{ textAlign: 'center', padding: 24 }}><Spin /></div>
-        ) : (
-          <div style={{ maxHeight: 380, overflowY: 'auto', paddingRight: 8 }}>
+        <div style={{ maxHeight: 380, overflowY: 'auto', paddingRight: 8 }}>
             {ROLE_GROUPS.map(({ label, roles }) => (
               <div key={label} style={{ marginBottom: 14 }}>
                 <div style={{ fontWeight: 600, marginBottom: 6, color: '#444' }}>{label} :</div>
@@ -415,8 +407,7 @@ function AssignmentPoliciesTab() {
               </div>
             ))}
           </div>
-        )}
-      </Modal>
+        </Modal>
     </>
   );
 }
