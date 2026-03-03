@@ -582,6 +582,10 @@ class ExchangeApiService {
     return response.data.data || [];
   }
 
+  async createRoleAssignmentPolicy(name: string, description?: string): Promise<void> {
+    await this.api.post('/organization/role-assignment-policies', { name, description });
+  }
+
   async updateRoleAssignmentPolicy(name: string, description: string): Promise<void> {
     await this.api.put(`/organization/role-assignment-policies/${encodeURIComponent(name)}`, { description });
   }
@@ -645,6 +649,10 @@ class ExchangeApiService {
   async getOwaMailboxPolicies(): Promise<any[]> {
     const response = await this.api.get<ApiResponse<any[]>>('/organization/owa-policies');
     return response.data.data || [];
+  }
+
+  async createOwaPolicy(name: string): Promise<void> {
+    await this.api.post('/organization/owa-policies', { name });
   }
 
   async updateOwaMailboxPolicy(name: string, fields: {

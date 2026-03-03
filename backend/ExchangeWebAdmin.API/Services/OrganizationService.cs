@@ -302,6 +302,15 @@ public class OrganizationService
             @"Get-RoleAssignmentPolicy | Select-Object Name, Description, IsDefault, WhenChanged",
             "Get-RoleAssignmentPolicy");
 
+    public async Task CreateRoleAssignmentPolicyAsync(string name, string? description)
+    {
+        var safeName = name.Replace("'", "''");
+        var parts = new List<string> { $"-Name '{safeName}'" };
+        if (!string.IsNullOrWhiteSpace(description))
+            parts.Add($"-Description '{description.Replace("'", "''")}'");
+        await _ps.ExecuteScriptAsync($"New-RoleAssignmentPolicy {string.Join(" ", parts)}");
+    }
+
     public async Task UpdateRoleAssignmentPolicyAsync(string name, string? description)
     {
         var parts = new List<string> { $"-Identity '{name.Replace("'", "''")}'"};
@@ -433,6 +442,12 @@ public class OrganizationService
         return await SafeListAsync(
             $"Get-OwaMailboxPolicy | Select-Object {select}",
             "Get-OwaMailboxPolicy");
+    }
+
+    public async Task CreateOwaMailboxPolicyAsync(string name)
+    {
+        var safeName = name.Replace("'", "''");
+        await _ps.ExecuteScriptAsync($"New-OwaMailboxPolicy -Name '{safeName}'");
     }
 
     public async Task UpdateOwaMailboxPolicyAsync(string name, UpdateOwaPolicyRequest f)

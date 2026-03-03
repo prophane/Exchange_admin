@@ -315,6 +315,13 @@ public class OrganizationController : ControllerBase
         }
     }
 
+    [HttpPost("role-assignment-policies")]
+    public async Task<IActionResult> CreateRoleAssignmentPolicy([FromBody] CreateRoleAssignmentPolicyRequest req)
+    {
+        try { await _org.CreateRoleAssignmentPolicyAsync(req.Name, req.Description); return Ok(new { success = true }); }
+        catch (Exception ex) { return StatusCode(500, new { success = false, error = ex.Message }); }
+    }
+
     [HttpPut("role-assignment-policies/{name}")]
     public async Task<IActionResult> UpdateRoleAssignmentPolicy(string name, [FromBody] UpdateRoleGroupRequest req)
     {
@@ -441,6 +448,13 @@ public class OrganizationController : ControllerBase
         catch (Exception ex) { return StatusCode(500, new { success = false, error = ex.Message }); }
     }
 
+    [HttpPost("owa-policies")]
+    public async Task<IActionResult> CreateOwaMailboxPolicy([FromBody] CreateOwaPolicyRequest req)
+    {
+        try { await _org.CreateOwaMailboxPolicyAsync(req.Name); return Ok(new { success = true }); }
+        catch (Exception ex) { return StatusCode(500, new { success = false, error = ex.Message }); }
+    }
+
     [HttpPut("owa-policies/{name}")]
     public async Task<IActionResult> UpdateOwaMailboxPolicy(string name, [FromBody] UpdateOwaPolicyRequest req)
     {
@@ -562,8 +576,11 @@ public record SetEmailAddressPolicyRequest(string? SmtpTemplate, string? Include
 public record CreateDagRequest(string Name, string WitnessServer, string WitnessDirectory);
 public record UpdateDagRequest(string? WitnessServer, string? WitnessDirectory);
 public record CreateRoleGroupRequest(string Name, string? Description);
+record CreateRoleAssignmentPolicyRequest(string Name, string? Description);
 public record UpdateRoleGroupRequest(string? Description);
-public record UpdateOwaPolicyRequest(
+public record CreateOwaPolicyRequest(string Name);
+
+record UpdateOwaPolicyRequest(
     // Communication
     bool? InstantMessagingEnabled,
     bool? TextMessagingEnabled,

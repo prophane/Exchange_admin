@@ -229,6 +229,11 @@ function RoleGroupsTab() {
 function AssignmentPoliciesTab() {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  // Création
+  const [createVisible, setCreateVisible] = useState(false);
+  const [createLoading, setCreateLoading] = useState(false);
+  const [createForm] = Form.useForm();
+  // Modification
   const [editVisible, setEditVisible] = useState(false);
   const [editTarget, setEditTarget] = useState<any>(null);
   const [editLoading, setEditLoading] = useState(false);
@@ -242,6 +247,20 @@ function AssignmentPoliciesTab() {
   };
 
   useEffect(() => { load(); }, []);
+
+  const handleCreate = async () => {
+    try {
+      const values = await createForm.validateFields();
+      setCreateLoading(true);
+      await exchangeApi.createRoleAssignmentPolicy(values.name, values.description);
+      message.success(`Stratégie "${values.name}" créée`);
+      createForm.resetFields();
+      setCreateVisible(false);
+      load();
+    } catch (e: any) {
+      if (e?.message) message.error(`Erreur: ${e.message}`);
+    } finally { setCreateLoading(false); }
+  };
 
   const openEdit = (row: any) => {
     setEditTarget(row);
@@ -279,7 +298,26 @@ function AssignmentPoliciesTab() {
       <Table rowKey="Name" dataSource={data} columns={columns} loading={loading}
         size="small" pagination={{ pageSize: 20 }}
         footer={() => `${data.length} stratégies`}
-        title={() => <Button icon={<ReloadOutlined />} onClick={load} size="small">Actualiser</Button>} />
+        title={() => (
+          <Space>
+            <Button icon={<ReloadOutlined />} onClick={load} size="small">Actualiser</Button>
+            <Button icon={<PlusOutlined />} onClick={() => setCreateVisible(true)} size="small" type="primary">Nouvelle stratégie</Button>
+          </Space>
+        )} />
+
+      <Modal title="Nouvelle stratégie d'attribution de rôles" open={createVisible}
+        onCancel={() => { setCreateVisible(false); createForm.resetFields(); }}
+        onOk={handleCreate} okText="Créer" confirmLoading={createLoading}>
+        <Form form={createForm} layout="vertical" style={{ marginTop: 12 }}>
+          <Form.Item name="name" label="Nom" rules={[{ required: true, message: 'Entrez un nom' }]}>
+            <Input placeholder="Ex: Policy-Restricted" autoFocus />
+          </Form.Item>
+          <Form.Item name="description" label="Description">
+            <Input.TextArea rows={3} placeholder="Description optionnelle" />
+          </Form.Item>
+        </Form>
+      </Modal>
+
       <Modal title={`Modifier "${editTarget?.Name}"`} open={editVisible}
         onCancel={() => setEditVisible(false)} onOk={handleEdit}
         okText="Enregistrer" confirmLoading={editLoading}>
@@ -296,6 +334,11 @@ function AssignmentPoliciesTab() {
 function OwaTab() {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  // Création
+  const [createVisible, setCreateVisible] = useState(false);
+  const [createLoading, setCreateLoading] = useState(false);
+  const [createForm] = Form.useForm();
+  // Modification
   const [editVisible, setEditVisible] = useState(false);
   const [editTarget, setEditTarget] = useState<any>(null);
   const [editLoading, setEditLoading] = useState(false);
@@ -309,6 +352,20 @@ function OwaTab() {
   };
 
   useEffect(() => { load(); }, []);
+
+  const handleCreate = async () => {
+    try {
+      const values = await createForm.validateFields();
+      setCreateLoading(true);
+      await exchangeApi.createOwaPolicy(values.name);
+      message.success(`Stratégie "${values.name}" créée`);
+      createForm.resetFields();
+      setCreateVisible(false);
+      load();
+    } catch (e: any) {
+      if (e?.message) message.error(`Erreur: ${e.message}`);
+    } finally { setCreateLoading(false); }
+  };
 
   const openEdit = (row: any) => {
     setEditTarget(row);
@@ -406,7 +463,22 @@ function OwaTab() {
       <Table rowKey="Name" dataSource={data} columns={columns} loading={loading}
         size="small" pagination={{ pageSize: 20 }}
         footer={() => `${data.length} stratégies OWA`}
-        title={() => <Button icon={<ReloadOutlined />} onClick={load} size="small">Actualiser</Button>} />
+        title={() => (
+          <Space>
+            <Button icon={<ReloadOutlined />} onClick={load} size="small">Actualiser</Button>
+            <Button icon={<PlusOutlined />} onClick={() => setCreateVisible(true)} size="small" type="primary">Nouvelle stratégie</Button>
+          </Space>
+        )} />
+
+      <Modal title="Nouvelle stratégie OWA" open={createVisible}
+        onCancel={() => { setCreateVisible(false); createForm.resetFields(); }}
+        onOk={handleCreate} okText="Créer" confirmLoading={createLoading}>
+        <Form form={createForm} layout="vertical" style={{ marginTop: 12 }}>
+          <Form.Item name="name" label="Nom" rules={[{ required: true, message: 'Entrez un nom' }]}>
+            <Input placeholder="Ex: OWA-Restricted" autoFocus />
+          </Form.Item>
+        </Form>
+      </Modal>
 
       <Modal
         title={`Modifier "${editTarget?.Name}"`}
