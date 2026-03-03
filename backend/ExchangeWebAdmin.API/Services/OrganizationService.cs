@@ -424,8 +424,8 @@ public class OrganizationService
                 "SMimeEnabled", "DisplayPhotosEnabled", "SetPhotoEnabled",
                 "WacEditingEnabled",
                 "WacViewingOnPublicComputersEnabled", "WacViewingOnPrivateComputersEnabled",
-                "WeatherEnabled", "PlacesEnabled", "LocalEventsEnabled", "InterestingCalendarsEnabled",
-                "MobileDeviceContactSyncEnabled"
+                "WeatherEnabled", "PlacesEnabled", "LocalEventsEnabled", "InterestingCalendarsEnabled"
+                // MobileDeviceContactSyncEnabled : n'existe PAS sur Exchange SE ni 2010
             });
         }
 
@@ -487,7 +487,7 @@ public class OrganizationService
             B("SMimeEnabled",                   f.SMimeEnabled);
             B("DisplayPhotosEnabled",           f.DisplayPhotosEnabled);
             B("SetPhotoEnabled",                f.SetPhotoEnabled);
-            B("MobileDeviceContactSyncEnabled", f.MobileDeviceContactSyncEnabled);
+            // MobileDeviceContactSyncEnabled : n'existe PAS sur Exchange SE ni 2010
             B("WacEditingEnabled",              f.WacEditingEnabled);
             B("WacViewingOnPublicComputersEnabled",  f.WacViewingOnPublicComputersEnabled);
             B("WacViewingOnPrivateComputersEnabled", f.WacViewingOnPrivateComputersEnabled);

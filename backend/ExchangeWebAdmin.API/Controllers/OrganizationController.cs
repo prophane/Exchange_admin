@@ -569,7 +569,6 @@ public record UpdateOwaPolicyRequest(
     bool? TextMessagingEnabled,
     bool? ActiveSyncIntegrationEnabled,
     bool? ContactsEnabled,
-    bool? MobileDeviceContactSyncEnabled,
     bool? AllAddressListsEnabled,
     // Informations
     bool? JournalEnabled,

@@ -318,7 +318,6 @@ function OwaTab() {
       textMessagingEnabled: !!row.TextMessagingEnabled,
       activeSyncIntegrationEnabled: !!row.ActiveSyncIntegrationEnabled,
       contactsEnabled: !!row.ContactsEnabled,
-      mobileDeviceContactSyncEnabled: !!row.MobileDeviceContactSyncEnabled,
       allAddressListsEnabled: !!row.AllAddressListsEnabled,
       // Information
       journalEnabled: !!row.JournalEnabled,
@@ -358,7 +357,6 @@ function OwaTab() {
         textMessagingEnabled: values.textMessagingEnabled,
         activeSyncIntegrationEnabled: values.activeSyncIntegrationEnabled,
         contactsEnabled: values.contactsEnabled,
-        mobileDeviceContactSyncEnabled: values.mobileDeviceContactSyncEnabled,
         allAddressListsEnabled: values.allAddressListsEnabled,
         journalEnabled: values.journalEnabled,
         notesEnabled: values.notesEnabled,
@@ -453,7 +451,6 @@ function OwaTab() {
                     <CB name="textMessagingEnabled" label="Messagerie texte" />
                     <CB name="activeSyncIntegrationEnabled" label="Exchange ActiveSync" />
                     <CB name="contactsEnabled" label="Contacts" />
-                    <CB name="mobileDeviceContactSyncEnabled" label="Synchronisation des contacts sur appareils mobiles" />
                     <CB name="allAddressListsEnabled" label="Toutes les listes d'adresses" />
                     <Divider style={{ margin: '8px 0' }} />
                     <SectionTitle title="Gestion des informations" />

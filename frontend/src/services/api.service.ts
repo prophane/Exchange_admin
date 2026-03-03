@@ -650,7 +650,7 @@ class ExchangeApiService {
   async updateOwaMailboxPolicy(name: string, fields: {
     instantMessagingEnabled?: boolean; textMessagingEnabled?: boolean;
     activeSyncIntegrationEnabled?: boolean; contactsEnabled?: boolean;
-    mobileDeviceContactSyncEnabled?: boolean; allAddressListsEnabled?: boolean;
+    allAddressListsEnabled?: boolean;
     journalEnabled?: boolean; notesEnabled?: boolean; rulesEnabled?: boolean;
     recoverDeletedItemsEnabled?: boolean; remindersAndNotificationsEnabled?: boolean;
     changePasswordEnabled?: boolean; junkEmailEnabled?: boolean;

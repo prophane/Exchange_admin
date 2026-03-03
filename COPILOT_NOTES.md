@@ -28,7 +28,7 @@ Vérifier :
 ### Paramètres Exchange 2013+ uniquement (jamais hors du bloc exVer >= 15)
 Liste non exhaustive — mettre systématiquement dans `if (exVer >= 15)` :
 - `SMimeEnabled`, `DisplayPhotosEnabled`, `SetPhotoEnabled`
-- `MobileDeviceContactSyncEnabled`
+- `MobileDeviceContactSyncEnabled` ← **N'EXISTE PAS sur Exchange SE ni Exchange 2010** — à ne jamais envoyer
 - `WacEditingEnabled`, `WacViewingOnPublicComputersEnabled`, `WacViewingOnPrivateComputersEnabled`
 - `WeatherEnabled`, `PlacesEnabled`, `LocalEventsEnabled`, `InterestingCalendarsEnabled`
 - `-Arbitration`, `-AuditLog`, `-AuxAuditLog` (Get-Mailbox switches) → présents sur 2010, à vérifier
