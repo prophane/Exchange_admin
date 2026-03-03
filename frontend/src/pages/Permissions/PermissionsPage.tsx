@@ -240,7 +240,6 @@ function AssignmentPoliciesTab() {
   const [editRolesLoading, setEditRolesLoading] = useState(false);
   const [editForm] = Form.useForm();
   // Rôles
-  const [allRoles, setAllRoles] = useState<{ Name: string; Description: string }[]>([]);
   const [initialRoles, setInitialRoles] = useState<Set<string>>(new Set());
   const [selectedRoles, setSelectedRoles] = useState<Set<string>>(new Set());
 
@@ -306,23 +305,36 @@ function AssignmentPoliciesTab() {
     finally { setEditLoading(false); }
   };
 
-  const ROLE_GROUPS: { label: string; names: string[] }[] = [
-    { label: 'Informations de contact',              names: ['MyContactInformation', 'MyAddressInformation', 'MyMobileInformation', 'MyPersonalInformation'] },
-    { label: 'Informations de profil',               names: ['MyProfileInformation', 'MyDisplayName', 'MyName'] },
-    { label: 'Groupes de distribution',              names: ['MyDistributionGroups'] },
-    { label: "Appartenance aux groupes de distribution", names: ['MyDistributionGroupMembership'] },
+  const ROLE_GROUPS: { label: string; roles: { name: string; desc: string }[] }[] = [
+    { label: 'Informations de contact', roles: [
+      { name: 'MyContactInformation',        desc: "Ce rôle permet aux utilisateurs de modifier leurs informations de contact, y compris l'adresse et les numéros de téléphone." },
+      { name: 'MyAddressInformation',        desc: "Permet aux utilisateurs d'afficher et de modifier leur adresse et numéros de téléphone professionnels." },
+      { name: 'MyMobileInformation',         desc: "Permet aux utilisateurs d'afficher et de modifier leurs numéros de téléphone mobile et récepteur d'appel." },
+      { name: 'MyPersonalInformation',       desc: "Permet aux utilisateurs d'afficher et de modifier leur adresse de site Web et numéro de téléphone personnel." },
+    ]},
+    { label: 'Informations de profil', roles: [
+      { name: 'MyProfileInformation',        desc: "Ce rôle permet aux utilisateurs de modifier leur nom." },
+      { name: 'MyDisplayName',               desc: "Permet aux utilisateurs d'afficher et de modifier leur nom d'affichage." },
+      { name: 'MyName',                      desc: "Permet aux utilisateurs d'afficher et de modifier leur nom complet et champ Notes." },
+    ]},
+    { label: 'Groupes de distribution', roles: [
+      { name: 'MyDistributionGroups',        desc: "Ce rôle permet aux utilisateurs de créer, modifier et afficher des groupes de distribution." },
+    ]},
+    { label: "Appartenance aux groupes de distribution", roles: [
+      { name: 'MyDistributionGroupMembership', desc: "Permet aux utilisateurs d'afficher et modifier leur appartenance aux groupes de distribution." },
+    ]},
+    { label: 'Autres rôles', roles: [
+      { name: 'MyMailboxDelegation',         desc: "Ce rôle permet aux administrateurs de déléguer des autorisations de boîte aux lettres." },
+      { name: 'MyBaseOptions',               desc: "Permet aux utilisateurs d'afficher et modifier la configuration de base de leur propre boîte aux lettres." },
+      { name: 'MyVoiceMail',                 desc: "Permet aux utilisateurs d'afficher et modifier leurs paramètres de messagerie vocale." },
+      { name: 'MyTextMessaging',             desc: "Permet aux utilisateurs de créer, afficher et modifier leurs paramètres de messagerie texte." },
+      { name: 'MyRetentionPolicies',         desc: "Permet aux utilisateurs d'afficher leurs balises de rétention et paramètres de stratégie." },
+      { name: 'MyTeamMailboxes',             desc: "Permet aux utilisateurs de créer des boîtes aux lettres de site et de les connecter à SharePoint." },
+      { name: 'MyMarketplaceApps',           desc: "Permet aux utilisateurs d'afficher et de modifier leurs applications marketplace." },
+      { name: 'MyReadWriteMailboxApps',      desc: "Permet aux utilisateurs d'installer des applications avec des autorisations ReadWriteMailbox." },
+      { name: 'MyDiagnostics',               desc: "Permet aux utilisateurs finaux d'effectuer des diagnostics de base sur leur boîte aux lettres." },
+    ]},
   ];
-
-  const groupedRoles: { label: string; roles: { Name: string; Description: string }[] }[] = (() => {
-    const knownNames = new Set(ROLE_GROUPS.flatMap(g => g.names));
-    const result = ROLE_GROUPS.map(g => ({
-      label: g.label,
-      roles: g.names.map(n => allRoles.find(r => r.Name === n)).filter(Boolean) as { Name: string; Description: string }[],
-    })).filter(g => g.roles.length > 0);
-    const others = allRoles.filter(r => !knownNames.has(r.Name));
-    if (others.length > 0) result.push({ label: 'Autres rôles', roles: others });
-    return result;
-  })();
 
   const columns: ColumnsType<any> = [
     { title: 'Nom', dataIndex: 'Name' },
