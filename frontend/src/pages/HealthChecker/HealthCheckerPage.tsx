@@ -82,6 +82,16 @@ export default function HealthCheckerPage() {
   useEffect(() => { load(); }, []);
 
   const path = resultsPath || 'C:\\Logs\\ExchangeHealthChecker';
+
+  // Noms des serveurs connus (depuis les rapports existants ou fallback générique)
+  const knownServers = servers.length > 0 ? servers.map(s => s.serverName) : [];
+  const serverList = knownServers.length > 0 ? knownServers.join(',') : 'EXCH1,EXCH2,EXCH3';
+
+  // Commande courte contextualisée
+  const quickCommand = knownServers.length > 0
+    ? `.\\HealthChecker.ps1 -Server ${serverList} -OutputFilePath '${path}' -BuildHtmlReport`
+    : `# Remplacez EXCH1,EXCH2,EXCH3 par vos serveurs Exchange\n.\\HealthChecker.ps1 -Server ${serverList} -OutputFilePath '${path}' -BuildHtmlReport`;
+
   const manualCommand = [
     `$resultsPath = '${path}'`,
     `New-Item -ItemType Directory -Path $resultsPath -Force | Out-Null`,
@@ -316,33 +326,70 @@ export default function HealthCheckerPage() {
             key: 'command',
             label: 'Commande manuelle',
             children: (
-              <Alert
-                type="warning"
-                showIcon
-                message="Exchange Management Shell (Administrateur)"
-                description={
-                  <Space direction="vertical" size={8} style={{ width: '100%' }}>
-                    <Text type="secondary">
-                      Copiez et exécutez cette commande dans un Exchange Management Shell lancé en tant qu'Administrateur.
-                    </Text>
-                    <Input.TextArea
-                      rows={9}
-                      readOnly
-                      value={manualCommand}
-                      style={{ fontFamily: 'Consolas, monospace', fontSize: 13 }}
-                    />
-                    <Button
-                      icon={<CopyOutlined />}
-                      onClick={async () => {
-                        await navigator.clipboard.writeText(manualCommand);
-                        message.success('Commande copiée !');
-                      }}
-                    >
-                      Copier la commande
-                    </Button>
-                  </Space>
-                }
-              />
+              <Space direction="vertical" size={16} style={{ width: '100%' }}>
+                {/* Commande courte contextualisée */}
+                <Alert
+                  type={knownServers.length > 0 ? 'success' : 'warning'}
+                  showIcon
+                  message={
+                    knownServers.length > 0
+                      ? `Commande rapide — serveurs détectés : ${serverList}`
+                      : 'Commande rapide — remplacez les noms de serveurs'
+                  }
+                  description={
+                    <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                      <Text type="secondary" style={{ fontSize: 12 }}>
+                        À exécuter depuis le dossier contenant <code>HealthChecker.ps1</code> dans un Exchange Management Shell (Administrateur).
+                      </Text>
+                      <Input.TextArea
+                        rows={knownServers.length > 0 ? 2 : 3}
+                        readOnly
+                        value={quickCommand}
+                        style={{ fontFamily: 'Consolas, monospace', fontSize: 13 }}
+                      />
+                      <Button
+                        size="small"
+                        icon={<CopyOutlined />}
+                        onClick={async () => {
+                          await navigator.clipboard.writeText(quickCommand);
+                          message.success('Commande copiée !');
+                        }}
+                      >
+                        Copier
+                      </Button>
+                    </Space>
+                  }
+                />
+
+                {/* Commande complète avec boucle */}
+                <Alert
+                  type="warning"
+                  showIcon
+                  message="Commande complète (téléchargement + boucle sur tous les serveurs)"
+                  description={
+                    <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                      <Text type="secondary">
+                        Copiez et exécutez cette commande dans un Exchange Management Shell lancé en tant qu'Administrateur.
+                      </Text>
+                      <Input.TextArea
+                        rows={9}
+                        readOnly
+                        value={manualCommand}
+                        style={{ fontFamily: 'Consolas, monospace', fontSize: 13 }}
+                      />
+                      <Button
+                        icon={<CopyOutlined />}
+                        onClick={async () => {
+                          await navigator.clipboard.writeText(manualCommand);
+                          message.success('Commande copiée !');
+                        }}
+                      >
+                        Copier la commande complète
+                      </Button>
+                    </Space>
+                  }
+                />
+              </Space>
             ),
           },
         ]}
