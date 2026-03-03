@@ -327,7 +327,7 @@ public class OrganizationService
 
     public async Task<List<Dictionary<string, object>>> GetEndUserRolesAsync() =>
         await SafeListAsync(
-            "Get-ManagementRole | Where-Object { $_.IsEndUserRole -eq $true } | Select-Object Name, Description, RoleType | Sort-Object RoleType, Name",
+            "Get-ManagementRole | Where-Object { $_.Name -like 'My*' } | Select-Object Name, Description | Sort-Object Name",
             "Get-ManagementRole");
 
     public async Task AddRoleToPolicyAsync(string policyName, string roleName) =>

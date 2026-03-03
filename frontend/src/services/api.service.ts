@@ -597,7 +597,7 @@ class ExchangeApiService {
     return (res.data.data ?? []).map((r: any) => String(r.Role ?? ''));
   }
 
-  async getEndUserRoles(): Promise<{ Name: string; Description: string; RoleType: string }[]> {
+  async getEndUserRoles(): Promise<{ Name: string; Description: string }[]> {
     const res = await this.api.get<ApiResponse<any[]>>('/organization/end-user-roles');
     return res.data.data ?? [];
   }

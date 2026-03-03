@@ -240,7 +240,7 @@ function AssignmentPoliciesTab() {
   const [editRolesLoading, setEditRolesLoading] = useState(false);
   const [editForm] = Form.useForm();
   // Rôles
-  const [allRoles, setAllRoles] = useState<{ Name: string; Description: string; RoleType: string }[]>([]);
+  const [allRoles, setAllRoles] = useState<{ Name: string; Description: string }[]>([]);
   const [initialRoles, setInitialRoles] = useState<Set<string>>(new Set());
   const [selectedRoles, setSelectedRoles] = useState<Set<string>>(new Set());
 
@@ -311,29 +311,22 @@ function AssignmentPoliciesTab() {
     finally { setEditLoading(false); }
   };
 
-  const ROLE_TYPE_LABELS: Record<string, string> = {
-    MyDistributionGroups: 'Groupes de distribution',
-    MyDistributionGroupMembership: 'Appartenance aux groupes de distribution',
-    MyContactInformation: 'Informations de contact',
-    MyProfileInformation: 'Informations de profil',
-    MyBaseOptions: 'Options de base',
-    MyTextMessaging: 'Messages textes',
-    MyVoiceMail: 'Messagerie vocale',
-    MyRetentionPolicies: 'Stratégies de rétention',
-    MyTeamMailboxes: "Boîtes aux lettres d'équipe",
-    MyMarketplaceApps: 'Applications marketplace',
-    MyReadWriteMailbox: 'Boîte aux lettres lecture/écriture',
-    MyMailboxDelegation: 'Délégation de boîte aux lettres',
-  };
+  const ROLE_GROUPS: { label: string; names: string[] }[] = [
+    { label: 'Informations de contact',              names: ['MyContactInformation', 'MyAddressInformation', 'MyMobileInformation', 'MyPersonalInformation'] },
+    { label: 'Informations de profil',               names: ['MyProfileInformation', 'MyDisplayName', 'MyName'] },
+    { label: 'Groupes de distribution',              names: ['MyDistributionGroups'] },
+    { label: "Appartenance aux groupes de distribution", names: ['MyDistributionGroupMembership'] },
+  ];
 
-  const groupedRoles: [string, typeof allRoles][] = (() => {
-    const map = new Map<string, typeof allRoles>();
-    for (const role of allRoles) {
-      const key = role.RoleType ?? 'Other';
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(role);
-    }
-    return [...map.entries()];
+  const groupedRoles: { label: string; roles: { Name: string; Description: string }[] }[] = (() => {
+    const knownNames = new Set(ROLE_GROUPS.flatMap(g => g.names));
+    const result = ROLE_GROUPS.map(g => ({
+      label: g.label,
+      roles: g.names.map(n => allRoles.find(r => r.Name === n)).filter(Boolean) as { Name: string; Description: string }[],
+    })).filter(g => g.roles.length > 0);
+    const others = allRoles.filter(r => !knownNames.has(r.Name));
+    if (others.length > 0) result.push({ label: 'Autres rôles', roles: others });
+    return result;
   })();
 
   const columns: ColumnsType<any> = [
@@ -397,10 +390,10 @@ function AssignmentPoliciesTab() {
           <div style={{ maxHeight: 380, overflowY: 'auto', paddingRight: 8 }}>
             {groupedRoles.length === 0 ? (
               <span style={{ color: '#999' }}>Aucun rôle disponible</span>
-            ) : groupedRoles.map(([type, roles]) => (
-              <div key={type} style={{ marginBottom: 14 }}>
+            ) : groupedRoles.map(({ label, roles }) => (
+              <div key={label} style={{ marginBottom: 14 }}>
                 <div style={{ fontWeight: 600, marginBottom: 6, color: '#444' }}>
-                  {ROLE_TYPE_LABELS[type] ?? type} :
+                  {label} :
                 </div>
                 {roles.map(role => (
                   <div key={role.Name} style={{ marginLeft: 16, marginBottom: 8 }}>
