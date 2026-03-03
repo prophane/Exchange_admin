@@ -447,12 +447,6 @@ public class OrganizationService
         B("ActiveSyncIntegrationEnabled", f.ActiveSyncIntegrationEnabled);
         B("ContactsEnabled",            f.ContactsEnabled);
         B("AllAddressListsEnabled",     f.AllAddressListsEnabled);
-        // MobileDeviceContactSyncEnabled : Exchange 2010 SP1+
-        if (f.MobileDeviceContactSyncEnabled.HasValue)
-        {
-            try { B("MobileDeviceContactSyncEnabled", f.MobileDeviceContactSyncEnabled); }
-            catch { /* ignoré si non supporté */ }
-        }
         // Informations (toutes versions)
         B("JournalEnabled",             f.JournalEnabled);
         B("NotesEnabled",               f.NotesEnabled);
@@ -463,26 +457,11 @@ public class OrganizationService
         B("ChangePasswordEnabled",      f.ChangePasswordEnabled);
         B("JunkEmailEnabled",           f.JunkEmailEnabled);
         B("IRMEnabled",                 f.IRMEnabled);
-        // Sécurité Exchange 2013+ uniquement
-        if (exVer >= 15)
-        {
-            B("SMimeEnabled",           f.SMimeEnabled);
-            B("DisplayPhotosEnabled",   f.DisplayPhotosEnabled);
-            B("SetPhotoEnabled",        f.SetPhotoEnabled);
-        }
         // Expérience utilisateur (toutes versions)
         B("ThemeSelectionEnabled",      f.ThemeSelectionEnabled);
         B("PremiumClientEnabled",       f.PremiumClientEnabled);
         B("SignaturesEnabled",          f.SignaturesEnabled);
         B("SpellCheckerEnabled",        f.SpellCheckerEnabled);
-        // Expérience utilisateur Exchange 2013+
-        if (exVer >= 15)
-        {
-            B("WeatherEnabled",         f.WeatherEnabled);
-            B("PlacesEnabled",          f.PlacesEnabled);
-            B("LocalEventsEnabled",     f.LocalEventsEnabled);
-            B("InterestingCalendarsEnabled", f.InterestingCalendarsEnabled);
-        }
         // Carnet d'adresses (toutes versions)
         B("GlobalAddressListEnabled",   f.GlobalAddressListEnabled);
         B("PublicFoldersEnabled",       f.PublicFoldersEnabled);
@@ -491,13 +470,6 @@ public class OrganizationService
         B("TasksEnabled",               f.TasksEnabled);
         B("DelegateAccessEnabled",      f.DelegateAccessEnabled);
         B("SearchFoldersEnabled",       f.SearchFoldersEnabled);
-        // WAC Exchange 2013+ uniquement
-        if (exVer >= 15)
-        {
-            B("WacEditingEnabled",      f.WacEditingEnabled);
-            B("WacViewingOnPublicComputersEnabled",  f.WacViewingOnPublicComputersEnabled);
-            B("WacViewingOnPrivateComputersEnabled", f.WacViewingOnPrivateComputersEnabled);
-        }
         // Accès fichiers (toutes versions)
         B("DirectFileAccessOnPublicComputersEnabled",  f.DirectFileAccessOnPublicComputersEnabled);
         B("DirectFileAccessOnPrivateComputersEnabled", f.DirectFileAccessOnPrivateComputersEnabled);
@@ -508,6 +480,21 @@ public class OrganizationService
         // Accès hors connexion (toutes versions)
         if (!string.IsNullOrWhiteSpace(f.AllowOfflineOn))
             p.Add($"-AllowOfflineOn {f.AllowOfflineOn}");
+        // EXCHANGE 2013+ UNIQUEMENT — tout champ non Exchange-2010 doit être dans ce bloc
+        if (exVer >= 15)
+        {
+            B("SMimeEnabled",                   f.SMimeEnabled);
+            B("DisplayPhotosEnabled",           f.DisplayPhotosEnabled);
+            B("SetPhotoEnabled",                f.SetPhotoEnabled);
+            B("MobileDeviceContactSyncEnabled", f.MobileDeviceContactSyncEnabled);
+            B("WacEditingEnabled",              f.WacEditingEnabled);
+            B("WacViewingOnPublicComputersEnabled",  f.WacViewingOnPublicComputersEnabled);
+            B("WacViewingOnPrivateComputersEnabled", f.WacViewingOnPrivateComputersEnabled);
+            B("WeatherEnabled",                 f.WeatherEnabled);
+            B("PlacesEnabled",                  f.PlacesEnabled);
+            B("LocalEventsEnabled",             f.LocalEventsEnabled);
+            B("InterestingCalendarsEnabled",    f.InterestingCalendarsEnabled);
+        }
         // Enum MIME (toutes versions)
         if (!string.IsNullOrWhiteSpace(f.ActionForUnknownFileAndMIMETypes))
             p.Add($"-ActionForUnknownFileAndMIMETypes {f.ActionForUnknownFileAndMIMETypes}");
