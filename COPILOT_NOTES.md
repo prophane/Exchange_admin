@@ -1,16 +1,29 @@
 # Notes pour GitHub Copilot — Exchange Web Admin
 
-## ⚠️ RÈGLE CRITIQUE — Compatibilité Exchange 2010
+## ⚠️ RÈGLE CRITIQUE — Compatibilité Exchange
 
-### Environnement
-- **Version Exchange** : **Exchange 2010** (version 14.x)
+### Environnement réel
+- **Version Exchange** : **Exchange Server SE** (version 15.x)
 - La fonction `ExVersion()` dans `OrganizationService.cs` retourne `14` pour Exchange 2010, `15` pour 2013+
 - L'infra utilisée est détectée via `_ps.GetCurrentInfrastructure()?.Version`
+- **ExVersion() retourne donc 15** → tous les blocs `if (exVer >= 15)` sont actifs
+
+### Problème récurrent réel → Sérialisation JSON camelCase ↔ PascalCase
+Le vrai problème récurrent **n'est PAS la compatibilité Exchange 2010** mais la **désérialisation JSON**.
+
+Le frontend envoie du JSON camelCase (`instantMessagingEnabled`) mais les records C# du backend ont des propriétés PascalCase (`InstantMessagingEnabled`). System.Text.Json est case-insensitive par défaut donc ça passe en général, **MAIS** :
+- Si un champ envoyé par le frontend **n'existe pas dans le record C#**, il est silencieusement ignoré → la valeur reste `null` → la commande PS ne l'inclut pas (comportement correct)
+- Si la commande PS construite est invalide (paramètre inconnu, mauvaise syntaxe) → exception PowerShell → HTTP 500
 
 ### Règle absolue pour les cmdlets PowerShell
-**TOUT paramètre qui n'existe pas dans Exchange 2010 DOIT être dans un bloc `if (exVer >= 15)`.**
+**TOUT paramètre qui n'existe pas sur la version Exchange cible DOIT être conditionné.**
+Sur Exchange SE (exVer=15) tous les paramètres modernes sont disponibles.
 
-Si un paramètre Exchange 2013+ est envoyé à Exchange 2010 → la commande PS échoue entièrement → HTTP 500.
+### À chaque nouvelle modification backend
+Vérifier :
+1. Le champ est-il dans le `record` C# de la requête ?
+2. Le champ est-il géré dans le service (appel à `B()` ou ajout dans `p`) ?
+3. Le paramètre PS existe-t-il sur Exchange SE ?
 
 ### Paramètres Exchange 2013+ uniquement (jamais hors du bloc exVer >= 15)
 Liste non exhaustive — mettre systématiquement dans `if (exVer >= 15)` :

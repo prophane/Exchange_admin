@@ -477,8 +477,9 @@ public class OrganizationService
         B("WebReadyDocumentViewingOnPrivateComputersEnabled", f.WebReadyDocumentViewingOnPrivateComputersEnabled);
         B("WSSAccessOnPublicComputersEnabled",   f.WSSAccessOnPublicComputersEnabled);
         B("UNCAccessOnPublicComputersEnabled",   f.UNCAccessOnPublicComputersEnabled);
-        // Accès hors connexion (toutes versions)
-        if (!string.IsNullOrWhiteSpace(f.AllowOfflineOn))
+        // Accès hors connexion — paramètre retiré dans Exchange 2016+ (exVer 15.1+)
+        // Sur Exchange SE / 2019 / 2016, AllowOfflineOn n'existe plus dans Set-OwaMailboxPolicy
+        if (!string.IsNullOrWhiteSpace(f.AllowOfflineOn) && exVer < 15)
             p.Add($"-AllowOfflineOn {f.AllowOfflineOn}");
         // EXCHANGE 2013+ UNIQUEMENT — tout champ non Exchange-2010 doit être dans ce bloc
         if (exVer >= 15)

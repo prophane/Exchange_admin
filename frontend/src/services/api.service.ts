@@ -61,6 +61,13 @@ class ExchangeApiService {
           }
         }
         console.error('API Error:', error);
+        // Extraire le vrai message d'erreur du backend (sinon on voit juste '500')
+        const backendError = errorData?.error || errorData?.message;
+        if (backendError && error instanceof Error) {
+          error.message = backendError;
+        } else if (backendError) {
+          return Promise.reject(new Error(backendError));
+        }
         return Promise.reject(error);
       }
     );
