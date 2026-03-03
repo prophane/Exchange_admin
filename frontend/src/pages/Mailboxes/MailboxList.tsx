@@ -262,6 +262,7 @@ export default function MailboxList() {
       title: 'Nom d\'affichage',
       dataIndex: 'displayName',
       key: 'displayName',
+      defaultSortOrder: 'ascend',
       sorter: (a, b) => (a.displayName || '').localeCompare(b.displayName || ''),
       render: (text) => <strong>{text}</strong>,
     },

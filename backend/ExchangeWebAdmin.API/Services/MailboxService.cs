@@ -29,21 +29,53 @@ public class MailboxService : IMailboxService
     {
         _logger.LogInformation("Récupération de {ResultSize} boîtes aux lettres", resultSize);
 
-        // Récupération des boîtes aux lettres - les types Exchange seront convertis automatiquement
-        var script = $@"
-            Get-Mailbox -ResultSize {resultSize} | Select-Object Name, DisplayName,
-                PrimarySmtpAddress, Alias, Database, OrganizationalUnit,
+        var fields = "Name, DisplayName, PrimarySmtpAddress, Alias, Database, OrganizationalUnit, " +
+                     "RecipientType, RecipientTypeDetails, WhenCreated, WhenChanged, " +
+                     "IssueWarningQuota, ProhibitSendQuota, ProhibitSendReceiveQuota, UseDatabaseQuotaDefaults";
+
+        var localScript = $"Get-Mailbox -ResultSize {resultSize} | Select-Object {fields}";
+
+        // Get-RemoteMailbox : boîtes hybrides (Exchange Online)
+        // N'a pas de champs Database/quota — on les laisse vides
+        var remoteScript = $@"
+            Get-RemoteMailbox -ResultSize {resultSize} | Select-Object Name, DisplayName,
+                PrimarySmtpAddress, Alias, OrganizationalUnit,
                 RecipientType, RecipientTypeDetails,
-                WhenCreated, WhenChanged, IssueWarningQuota,
-                ProhibitSendQuota, ProhibitSendReceiveQuota, UseDatabaseQuotaDefaults
+                WhenCreated, WhenChanged
         ";
 
-        var result = await _psService.ExecuteScriptAsync(script);
-        
-        if (result is List<Dictionary<string, object>> dictList)
-            return dictList.Select(MapMailboxDto).ToList();
+        var all  = new List<MailboxDto>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        return new List<MailboxDto>();
+        // Boites locales
+        var localResult = await _psService.ExecuteScriptAsync(localScript);
+        if (localResult is List<Dictionary<string, object>> localList)
+            foreach (var d in localList)
+            {
+                var dto = MapMailboxDto(d);
+                if (seen.Add(dto.PrimarySmtpAddress.Length > 0 ? dto.PrimarySmtpAddress : dto.Alias))
+                    all.Add(dto);
+            }
+
+        // Boites remote (Exchange hybride — ignorer si la cmdlet n'existe pas)
+        try
+        {
+            var remoteResult = await _psService.ExecuteScriptAsync(remoteScript);
+            if (remoteResult is List<Dictionary<string, object>> remoteList)
+                foreach (var d in remoteList)
+                {
+                    var dto = MapMailboxDto(d);
+                    var key = dto.PrimarySmtpAddress.Length > 0 ? dto.PrimarySmtpAddress : dto.Alias;
+                    if (seen.Add(key))
+                        all.Add(dto);
+                }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning("Get-RemoteMailbox non disponible : {Message}", ex.Message);
+        }
+
+        return all.OrderBy(m => m.DisplayName).ToList();
     }
 
     public async Task<IEnumerable<MailboxDto>> GetSystemMailboxesAsync()
