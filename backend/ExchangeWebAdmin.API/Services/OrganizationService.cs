@@ -322,7 +322,7 @@ public class OrganizationService
 
     public async Task<List<Dictionary<string, object>>> GetPolicyRolesAsync(string policyName) =>
         await SafeListAsync(
-            $"Get-ManagementRoleAssignment -RoleAssignee '{policyName.Replace("'", "''")}' | Select-Object @{{N='Role'; E={{$_.Role.ToString()}}}}",
+            $"Get-ManagementRoleAssignment -RoleAssignee '{policyName.Replace("'", "''")}' | Select-Object @{{N='Role'; E={{$_.RoleName}}}}",
             "Get-ManagementRoleAssignment");
 
     public async Task<List<Dictionary<string, object>>> GetEndUserRolesAsync() =>
