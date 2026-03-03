@@ -67,7 +67,7 @@ export const SYSTEM_MAILBOX_TYPES = new Set([
   'ArbitrationMailbox', 'DiscoveryMailbox', 'SystemMailbox',
   'SystemAttendantMailbox', 'PublicFolderMailbox', 'MonitoringMailbox',
   // équivalents numériques (Exchange 2010 enum long)
-  '8192', '16384', '8388608', '536870912', '2147483648',
+  '8192', '16384', '8388608', '536870912', '2147483648', '549755813888',
 ]);
 
 export function isSystemMailbox(rd?: string | null): boolean {

@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  Button, Input, Modal, Space, Table, Tag, Typography,
+  Button, Input, Modal, Space, Table, Tag, Tooltip, Typography,
   Descriptions, Tabs, Spin, message,
 } from 'antd';
 import {
@@ -21,12 +21,25 @@ const RECIPIENT_TYPE_LABELS: Record<string, { label: string; color: string }> = 
   SystemAttendantMailbox: { label: 'Système',         color: 'default' },
   PublicFolderMailbox:    { label: 'Dossier public',  color: 'purple'  },
   MonitoringMailbox:      { label: 'Surveillance',    color: 'cyan'    },
-  '8192':      { label: 'Système',        color: 'default' },
-  '16384':     { label: 'Système',        color: 'default' },
-  '8388608':   { label: 'Arbitrage',      color: 'lime'    },
-  '536870912': { label: 'Découverte',     color: 'gold'    },
-  '2147483648':{ label: 'Dossier public', color: 'purple'  },
+  '8192':         { label: 'Système',        color: 'default' },
+  '16384':        { label: 'Système',        color: 'default' },
+  '8388608':      { label: 'Arbitrage',      color: 'lime'    },
+  '536870912':    { label: 'Découverte',     color: 'gold'    },
+  '2147483648':   { label: 'Dossier public', color: 'purple'  },
+  '549755813888': { label: 'Surveillance',   color: 'cyan'    },
 };
+
+function truncate(value: string | undefined | null, max = 32): React.ReactNode {
+  if (!value) return '-';
+  if (value.length <= max) return <span>{value}</span>;
+  return (
+    <Tooltip title={value}>
+      <span style={{ fontFamily: 'monospace', fontSize: 12, cursor: 'default' }}>
+        {value.slice(0, max)}…
+      </span>
+    </Tooltip>
+  );
+}
 
 function TypeTag({ value }: { value?: string }) {
   if (!value) return <Tag>-</Tag>;
@@ -92,8 +105,8 @@ export default function SystemMailboxList() {
       render: (t) => <strong>{t}</strong>,
       sorter: (a, b) => (a.displayName || '').localeCompare(b.displayName || ''),
     },
-    { title: 'Alias', dataIndex: 'alias' },
-    { title: 'Adresse email', dataIndex: 'primarySmtpAddress' },
+    { title: 'Alias', dataIndex: 'alias', render: (v) => truncate(v) },
+    { title: 'Adresse email', dataIndex: 'primarySmtpAddress', render: (v) => truncate(v, 40) },
     {
       title: 'Type',
       dataIndex: 'recipientTypeDetails',
