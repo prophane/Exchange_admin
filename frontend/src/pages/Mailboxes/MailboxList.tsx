@@ -74,6 +74,18 @@ export function isSystemMailbox(rd?: string | null): boolean {
   return !!rd && SYSTEM_MAILBOX_TYPES.has(String(rd));
 }
 
+// Seuls types affichés dans l'onglet principal (User / Remote / Liée)
+// Les autres (Shared, Room, Equipment) ont leurs propres onglets dans Destinataires
+const USER_MAILBOX_TYPES = new Set([
+  'UserMailbox', 'RemoteUserMailbox', 'LinkedMailbox',
+  '1',  // UserMailbox numérique Exchange 2010
+  '2',  // LinkedMailbox numérique Exchange 2010
+]);
+
+function isUserMailbox(rd?: string | null): boolean {
+  return !!rd && USER_MAILBOX_TYPES.has(String(rd));
+}
+
 function RecipientTypeTag({ value }: { value?: string }) {
   if (!value) return <Tag>-</Tag>;
   const key = String(value);
@@ -278,9 +290,6 @@ export default function MailboxList() {
       render: (text) => <RecipientTypeTag value={text} />,
       filters: [
         { text: 'Utilisateur',  value: 'UserMailbox'        },
-        { text: 'Partagée',     value: 'SharedMailbox'       },
-        { text: 'Salle',        value: 'RoomMailbox'         },
-        { text: 'Équipement',   value: 'EquipmentMailbox'    },
         { text: 'Remote',       value: 'RemoteUserMailbox'   },
         { text: 'Liée',         value: 'LinkedMailbox'       },
       ],
@@ -337,7 +346,7 @@ export default function MailboxList() {
     },
   ];
 
-  const userMbxes = filteredMailboxes.filter(m => !isSystemMailbox(m.recipientTypeDetails));
+  const userMbxes = filteredMailboxes.filter(m => isUserMailbox(m.recipientTypeDetails));
 
   return (
     <div>
