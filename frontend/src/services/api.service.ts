@@ -594,7 +594,12 @@ class ExchangeApiService {
 
   async getPolicyRoles(policyName: string): Promise<string[]> {
     const res = await this.api.get<ApiResponse<any[]>>(`/organization/role-assignment-policies/${encodeURIComponent(policyName)}/roles`);
-    return (res.data.data ?? []).map((r: any) => String(r.Role ?? ''));
+    // Les assignments sont nommés "{PolicyName}-{RoleName}" — on extrait le nom du rôle
+    return (res.data.data ?? []).map((r: any) => {
+      const assignmentName = String(r.Name ?? '');
+      const prefix = policyName + '-';
+      return assignmentName.startsWith(prefix) ? assignmentName.slice(prefix.length) : assignmentName;
+    }).filter(Boolean);
   }
 
   async getEndUserRoles(): Promise<{ Name: string; Description: string }[]> {
