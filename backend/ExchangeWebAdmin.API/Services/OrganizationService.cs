@@ -311,10 +311,12 @@ public class OrganizationService
         await _ps.ExecuteScriptAsync($"New-RoleAssignmentPolicy {string.Join(" ", parts)}");
     }
 
-    public async Task UpdateRoleAssignmentPolicyAsync(string name, string? description)
+    public async Task UpdateRoleAssignmentPolicyAsync(string name, string? newName, string? description, bool? isDefault)
     {
         var parts = new List<string> { $"-Identity '{name.Replace("'", "''")}'"};
-        if (description != null) parts.Add($"-Description '{description.Replace("'", "''")}'");
+        if (!string.IsNullOrWhiteSpace(newName))   parts.Add($"-Name '{newName.Replace("'", "''")}'");
+        if (description != null)                    parts.Add($"-Description '{description.Replace("'", "''")}'");
+        if (isDefault == true)                      parts.Add("-IsDefault");
         await _ps.ExecuteScriptAsync($"Set-RoleAssignmentPolicy {string.Join(" ", parts)}");
     }
 

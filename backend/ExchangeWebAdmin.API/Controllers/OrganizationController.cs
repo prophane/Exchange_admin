@@ -323,9 +323,9 @@ public class OrganizationController : ControllerBase
     }
 
     [HttpPut("role-assignment-policies/{name}")]
-    public async Task<IActionResult> UpdateRoleAssignmentPolicy(string name, [FromBody] UpdateRoleGroupRequest req)
+    public async Task<IActionResult> UpdateRoleAssignmentPolicy(string name, [FromBody] UpdateRoleAssignmentPolicyRequest req)
     {
-        try { await _org.UpdateRoleAssignmentPolicyAsync(name, req.Description); return Ok(new { success = true }); }
+        try { await _org.UpdateRoleAssignmentPolicyAsync(name, req.NewName, req.Description, req.IsDefault); return Ok(new { success = true }); }
         catch (Exception ex) { return StatusCode(500, new { success = false, error = ex.Message }); }
     }
 
@@ -577,6 +577,7 @@ public record CreateDagRequest(string Name, string WitnessServer, string Witness
 public record UpdateDagRequest(string? WitnessServer, string? WitnessDirectory);
 public record CreateRoleGroupRequest(string Name, string? Description);
 record CreateRoleAssignmentPolicyRequest(string Name, string? Description);
+record UpdateRoleAssignmentPolicyRequest(string? NewName, string? Description, bool? IsDefault);
 public record UpdateRoleGroupRequest(string? Description);
 public record CreateOwaPolicyRequest(string Name);
 

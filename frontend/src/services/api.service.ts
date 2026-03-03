@@ -586,8 +586,10 @@ class ExchangeApiService {
     await this.api.post('/organization/role-assignment-policies', { name, description });
   }
 
-  async updateRoleAssignmentPolicy(name: string, description: string): Promise<void> {
-    await this.api.put(`/organization/role-assignment-policies/${encodeURIComponent(name)}`, { description });
+  async updateRoleAssignmentPolicy(name: string, fields: {
+    newName?: string; description?: string; isDefault?: boolean;
+  }): Promise<void> {
+    await this.api.put(`/organization/role-assignment-policies/${encodeURIComponent(name)}`, fields);
   }
 
   async getMailboxPlans(): Promise<any[]> {

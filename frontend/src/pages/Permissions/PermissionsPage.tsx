@@ -264,7 +264,11 @@ function AssignmentPoliciesTab() {
 
   const openEdit = (row: any) => {
     setEditTarget(row);
-    editForm.setFieldsValue({ description: row.Description ?? '' });
+    editForm.setFieldsValue({
+      newName: row.Name,
+      description: row.Description ?? '',
+      isDefault: !!row.IsDefault,
+    });
     setEditVisible(true);
   };
 
@@ -272,7 +276,11 @@ function AssignmentPoliciesTab() {
     const values = await editForm.validateFields();
     setEditLoading(true);
     try {
-      await exchangeApi.updateRoleAssignmentPolicy(editTarget.Name, values.description ?? '');
+      await exchangeApi.updateRoleAssignmentPolicy(editTarget.Name, {
+        newName: values.newName !== editTarget.Name ? values.newName : undefined,
+        description: values.description ?? '',
+        isDefault: values.isDefault && !editTarget.IsDefault ? true : undefined,
+      });
       message.success('Stratégie mise à jour');
       setEditVisible(false);
       load();
@@ -322,8 +330,16 @@ function AssignmentPoliciesTab() {
         onCancel={() => setEditVisible(false)} onOk={handleEdit}
         okText="Enregistrer" confirmLoading={editLoading}>
         <Form form={editForm} layout="vertical" style={{ marginTop: 12 }}>
+          <Form.Item name="newName" label="Nom" rules={[{ required: true, message: 'Entrez un nom' }]}>
+            <Input />
+          </Form.Item>
           <Form.Item name="description" label="Description">
             <Input.TextArea rows={3} />
+          </Form.Item>
+          <Form.Item name="isDefault" valuePropName="checked">
+            <Checkbox disabled={!!editTarget?.IsDefault}>
+              Stratégie par défaut{editTarget?.IsDefault ? ' (déjà active)' : ''}
+            </Checkbox>
           </Form.Item>
         </Form>
       </Modal>
