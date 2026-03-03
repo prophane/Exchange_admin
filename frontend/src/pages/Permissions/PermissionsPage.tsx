@@ -275,12 +275,7 @@ function AssignmentPoliciesTab() {
     setEditVisible(true);
     setEditRolesLoading(true);
     try {
-      const cached = allRoles.length > 0;
-      const [roles, policyRoles] = await Promise.all([
-        cached ? Promise.resolve(allRoles) : exchangeApi.getEndUserRoles(),
-        exchangeApi.getPolicyRoles(row.Name),
-      ]);
-      if (!cached) setAllRoles(roles as any[]);
+      const policyRoles = await exchangeApi.getPolicyRoles(row.Name);
       const assigned = new Set<string>(policyRoles);
       setInitialRoles(assigned);
       setSelectedRoles(new Set(assigned));
@@ -388,27 +383,21 @@ function AssignmentPoliciesTab() {
           <div style={{ textAlign: 'center', padding: 24 }}><Spin /></div>
         ) : (
           <div style={{ maxHeight: 380, overflowY: 'auto', paddingRight: 8 }}>
-            {groupedRoles.length === 0 ? (
-              <span style={{ color: '#999' }}>Aucun rôle disponible</span>
-            ) : groupedRoles.map(({ label, roles }) => (
+            {ROLE_GROUPS.map(({ label, roles }) => (
               <div key={label} style={{ marginBottom: 14 }}>
-                <div style={{ fontWeight: 600, marginBottom: 6, color: '#444' }}>
-                  {label} :
-                </div>
+                <div style={{ fontWeight: 600, marginBottom: 6, color: '#444' }}>{label} :</div>
                 {roles.map(role => (
-                  <div key={role.Name} style={{ marginLeft: 16, marginBottom: 8 }}>
+                  <div key={role.name} style={{ marginLeft: 16, marginBottom: 8 }}>
                     <Checkbox
-                      checked={selectedRoles.has(role.Name)}
+                      checked={selectedRoles.has(role.name)}
                       onChange={e => {
                         const next = new Set(selectedRoles);
-                        if (e.target.checked) next.add(role.Name); else next.delete(role.Name);
+                        if (e.target.checked) next.add(role.name); else next.delete(role.name);
                         setSelectedRoles(next);
                       }}>
-                      <strong>{role.Name}</strong>
+                      <strong>{role.name}</strong>
                     </Checkbox>
-                    {role.Description && (
-                      <div style={{ fontSize: 12, color: '#888', marginLeft: 24, marginTop: 2 }}>{role.Description}</div>
-                    )}
+                    <div style={{ fontSize: 12, color: '#888', marginLeft: 24, marginTop: 2 }}>{role.desc}</div>
                   </div>
                 ))}
               </div>
