@@ -320,6 +320,24 @@ public class OrganizationService
         await _ps.ExecuteScriptAsync($"Set-RoleAssignmentPolicy {string.Join(" ", parts)}");
     }
 
+    public async Task<List<Dictionary<string, object>>> GetPolicyRolesAsync(string policyName) =>
+        await SafeListAsync(
+            $"Get-ManagementRoleAssignment -RoleAssignee '{policyName.Replace("'", "''")}' | Select-Object Role",
+            "Get-ManagementRoleAssignment");
+
+    public async Task<List<Dictionary<string, object>>> GetEndUserRolesAsync() =>
+        await SafeListAsync(
+            "Get-ManagementRole | Where-Object { $_.IsEndUserRole -eq $true } | Select-Object Name, Description, RoleType | Sort-Object RoleType, Name",
+            "Get-ManagementRole");
+
+    public async Task AddRoleToPolicyAsync(string policyName, string roleName) =>
+        await _ps.ExecuteScriptAsync(
+            $"New-ManagementRoleAssignment -Role '{roleName.Replace("'", "''")}' -Policy '{policyName.Replace("'", "''")}'");
+
+    public async Task RemoveRoleFromPolicyAsync(string policyName, string roleName) =>
+        await _ps.ExecuteScriptAsync(
+            $"Get-ManagementRoleAssignment -RoleAssignee '{policyName.Replace("'", "''")}' -Role '{roleName.Replace("'", "''")}' | Remove-ManagementRoleAssignment -Confirm:$false");
+
     // =========================================================================
     // UTILISATEURS — Plans de boîtes aux lettres
     // =========================================================================

@@ -592,6 +592,24 @@ class ExchangeApiService {
     await this.api.put(`/organization/role-assignment-policies/${encodeURIComponent(name)}`, fields);
   }
 
+  async getPolicyRoles(policyName: string): Promise<string[]> {
+    const res = await this.api.get<ApiResponse<any[]>>(`/organization/role-assignment-policies/${encodeURIComponent(policyName)}/roles`);
+    return (res.data.data ?? []).map((r: any) => String(r.Role ?? ''));
+  }
+
+  async getEndUserRoles(): Promise<{ Name: string; Description: string; RoleType: string }[]> {
+    const res = await this.api.get<ApiResponse<any[]>>('/organization/end-user-roles');
+    return res.data.data ?? [];
+  }
+
+  async addRoleToPolicy(policyName: string, roleName: string): Promise<void> {
+    await this.api.post(`/organization/role-assignment-policies/${encodeURIComponent(policyName)}/roles/${encodeURIComponent(roleName)}`, {});
+  }
+
+  async removeRoleFromPolicy(policyName: string, roleName: string): Promise<void> {
+    await this.api.delete(`/organization/role-assignment-policies/${encodeURIComponent(policyName)}/roles/${encodeURIComponent(roleName)}`);
+  }
+
   async getMailboxPlans(): Promise<any[]> {
     const response = await this.api.get<ApiResponse<any[]>>('/organization/mailbox-plans');
     return response.data.data || [];

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Table, Typography, Tag, message, Tabs, Button, Modal, Form, Input, Space, Popconfirm, Tooltip, Divider, Switch, Checkbox, Radio } from 'antd';
+import { Table, Typography, Tag, message, Tabs, Button, Modal, Form, Input, Space, Popconfirm, Tooltip, Divider, Switch, Checkbox, Radio, Spin } from 'antd';
 import { ReloadOutlined, LockOutlined, PlusOutlined, EditOutlined, DeleteOutlined, TeamOutlined, MinusCircleOutlined, UserAddOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { exchangeApi } from '../../services/api.service';
@@ -237,7 +237,12 @@ function AssignmentPoliciesTab() {
   const [editVisible, setEditVisible] = useState(false);
   const [editTarget, setEditTarget] = useState<any>(null);
   const [editLoading, setEditLoading] = useState(false);
+  const [editRolesLoading, setEditRolesLoading] = useState(false);
   const [editForm] = Form.useForm();
+  // Rôles
+  const [allRoles, setAllRoles] = useState<{ Name: string; Description: string; RoleType: string }[]>([]);
+  const [initialRoles, setInitialRoles] = useState<Set<string>>(new Set());
+  const [selectedRoles, setSelectedRoles] = useState<Set<string>>(new Set());
 
   const load = async () => {
     setLoading(true);
@@ -262,31 +267,74 @@ function AssignmentPoliciesTab() {
     } finally { setCreateLoading(false); }
   };
 
-  const openEdit = (row: any) => {
+  const openEdit = async (row: any) => {
     setEditTarget(row);
-    editForm.setFieldsValue({
-      newName: row.Name,
-      description: row.Description ?? '',
-      isDefault: !!row.IsDefault,
-    });
+    editForm.setFieldsValue({ newName: row.Name, description: row.Description ?? '', isDefault: !!row.IsDefault });
+    setSelectedRoles(new Set());
+    setInitialRoles(new Set());
     setEditVisible(true);
+    setEditRolesLoading(true);
+    try {
+      const cached = allRoles.length > 0;
+      const [roles, policyRoles] = await Promise.all([
+        cached ? Promise.resolve(allRoles) : exchangeApi.getEndUserRoles(),
+        exchangeApi.getPolicyRoles(row.Name),
+      ]);
+      if (!cached) setAllRoles(roles as any[]);
+      const assigned = new Set<string>(policyRoles);
+      setInitialRoles(assigned);
+      setSelectedRoles(new Set(assigned));
+    } catch (e: any) { message.error(`Erreur chargement rôles: ${e.message}`); }
+    finally { setEditRolesLoading(false); }
   };
 
   const handleEdit = async () => {
     const values = await editForm.validateFields();
     setEditLoading(true);
     try {
+      const effectiveName = (values.newName && values.newName !== editTarget.Name) ? values.newName : editTarget.Name;
       await exchangeApi.updateRoleAssignmentPolicy(editTarget.Name, {
         newName: values.newName !== editTarget.Name ? values.newName : undefined,
         description: values.description ?? '',
         isDefault: values.isDefault && !editTarget.IsDefault ? true : undefined,
       });
+      const toAdd = [...selectedRoles].filter(r => !initialRoles.has(r));
+      const toRemove = [...initialRoles].filter(r => !selectedRoles.has(r));
+      await Promise.all([
+        ...toAdd.map(r => exchangeApi.addRoleToPolicy(effectiveName, r)),
+        ...toRemove.map(r => exchangeApi.removeRoleFromPolicy(effectiveName, r)),
+      ]);
       message.success('Stratégie mise à jour');
       setEditVisible(false);
       load();
     } catch (e: any) { message.error(`Erreur: ${e.message}`); }
     finally { setEditLoading(false); }
   };
+
+  const ROLE_TYPE_LABELS: Record<string, string> = {
+    MyDistributionGroups: 'Groupes de distribution',
+    MyDistributionGroupMembership: 'Appartenance aux groupes de distribution',
+    MyContactInformation: 'Informations de contact',
+    MyProfileInformation: 'Informations de profil',
+    MyBaseOptions: 'Options de base',
+    MyTextMessaging: 'Messages textes',
+    MyVoiceMail: 'Messagerie vocale',
+    MyRetentionPolicies: 'Stratégies de rétention',
+    MyTeamMailboxes: "Boîtes aux lettres d'équipe",
+    MyMarketplaceApps: 'Applications marketplace',
+    MyReadWriteMailbox: 'Boîte aux lettres lecture/écriture',
+    MyMailboxDelegation: 'Délégation de boîte aux lettres',
+  };
+
+  const groupedRoles: [string, typeof allRoles][] = (() => {
+    const map = new Map<string, typeof allRoles>();
+    for (const role of allRoles) {
+      const key = role.RoleType ?? 'Other';
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(role);
+    }
+    return [...map.entries()];
+  })();
 
   const columns: ColumnsType<any> = [
     { title: 'Nom', dataIndex: 'Name' },
@@ -328,7 +376,7 @@ function AssignmentPoliciesTab() {
 
       <Modal title={`Modifier "${editTarget?.Name}"`} open={editVisible}
         onCancel={() => setEditVisible(false)} onOk={handleEdit}
-        okText="Enregistrer" confirmLoading={editLoading}>
+        okText="Enregistrer" confirmLoading={editLoading} width={700}>
         <Form form={editForm} layout="vertical" style={{ marginTop: 12 }}>
           <Form.Item name="newName" label="Nom" rules={[{ required: true, message: 'Entrez un nom' }]}>
             <Input />
@@ -342,6 +390,38 @@ function AssignmentPoliciesTab() {
             </Checkbox>
           </Form.Item>
         </Form>
+        <Divider orientation="left" style={{ marginTop: 0 }}>Rôles assignés</Divider>
+        {editRolesLoading ? (
+          <div style={{ textAlign: 'center', padding: 24 }}><Spin /></div>
+        ) : (
+          <div style={{ maxHeight: 380, overflowY: 'auto', paddingRight: 8 }}>
+            {groupedRoles.length === 0 ? (
+              <span style={{ color: '#999' }}>Aucun rôle disponible</span>
+            ) : groupedRoles.map(([type, roles]) => (
+              <div key={type} style={{ marginBottom: 14 }}>
+                <div style={{ fontWeight: 600, marginBottom: 6, color: '#444' }}>
+                  {ROLE_TYPE_LABELS[type] ?? type} :
+                </div>
+                {roles.map(role => (
+                  <div key={role.Name} style={{ marginLeft: 16, marginBottom: 8 }}>
+                    <Checkbox
+                      checked={selectedRoles.has(role.Name)}
+                      onChange={e => {
+                        const next = new Set(selectedRoles);
+                        if (e.target.checked) next.add(role.Name); else next.delete(role.Name);
+                        setSelectedRoles(next);
+                      }}>
+                      <strong>{role.Name}</strong>
+                    </Checkbox>
+                    {role.Description && (
+                      <div style={{ fontSize: 12, color: '#888', marginLeft: 24, marginTop: 2 }}>{role.Description}</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
       </Modal>
     </>
   );

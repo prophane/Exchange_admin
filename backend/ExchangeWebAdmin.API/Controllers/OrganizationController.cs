@@ -329,6 +329,34 @@ public class OrganizationController : ControllerBase
         catch (Exception ex) { return StatusCode(500, new { success = false, error = ex.Message }); }
     }
 
+    [HttpGet("role-assignment-policies/{name}/roles")]
+    public async Task<IActionResult> GetPolicyRoles(string name)
+    {
+        try { var data = await _org.GetPolicyRolesAsync(name); return Ok(new { success = true, data }); }
+        catch (Exception ex) { return StatusCode(500, new { success = false, error = ex.Message }); }
+    }
+
+    [HttpGet("end-user-roles")]
+    public async Task<IActionResult> GetEndUserRoles()
+    {
+        try { var data = await _org.GetEndUserRolesAsync(); return Ok(new { success = true, data }); }
+        catch (Exception ex) { return StatusCode(500, new { success = false, error = ex.Message }); }
+    }
+
+    [HttpPost("role-assignment-policies/{name}/roles/{roleName}")]
+    public async Task<IActionResult> AddRoleToPolicy(string name, string roleName)
+    {
+        try { await _org.AddRoleToPolicyAsync(name, roleName); return Ok(new { success = true }); }
+        catch (Exception ex) { return StatusCode(500, new { success = false, error = ex.Message }); }
+    }
+
+    [HttpDelete("role-assignment-policies/{name}/roles/{roleName}")]
+    public async Task<IActionResult> RemoveRoleFromPolicy(string name, string roleName)
+    {
+        try { await _org.RemoveRoleFromPolicyAsync(name, roleName); return Ok(new { success = true }); }
+        catch (Exception ex) { return StatusCode(500, new { success = false, error = ex.Message }); }
+    }
+
     [HttpGet("mailbox-plans")]
     public async Task<IActionResult> GetMailboxPlans()
     {
