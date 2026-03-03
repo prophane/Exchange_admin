@@ -89,6 +89,11 @@ class ExchangeApiService {
     return response.data.data || [];
   }
 
+  async getSystemMailboxes(): Promise<Mailbox[]> {
+    const response = await this.api.get<ApiResponse<Mailbox[]>>('/mailboxes/system');
+    return response.data.data || [];
+  }
+
   async getMailbox(identity: string): Promise<Mailbox | null> {
     const response = await this.api.get<ApiResponse<Mailbox>>(`/mailboxes/${encodeURIComponent(identity)}`);
     return response.data.data || null;

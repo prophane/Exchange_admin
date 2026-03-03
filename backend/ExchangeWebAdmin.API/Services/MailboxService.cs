@@ -5,6 +5,7 @@ namespace ExchangeWebAdmin.API.Services;
 public interface IMailboxService
 {
     Task<IEnumerable<MailboxDto>> GetMailboxesAsync(int resultSize = 1000);
+    Task<IEnumerable<MailboxDto>> GetSystemMailboxesAsync();
     Task<MailboxDto?> GetMailboxAsync(string identity);
     Task<MailboxStatisticsDto?> GetMailboxStatisticsAsync(string identity);
     Task<MailboxDto> CreateMailboxAsync(CreateMailboxRequest request);
@@ -39,30 +40,80 @@ public class MailboxService : IMailboxService
 
         var result = await _psService.ExecuteScriptAsync(script);
         
-        // Le résultat est déjà une liste de dictionnaires
         if (result is List<Dictionary<string, object>> dictList)
-        {
-            return dictList.Select(d => new MailboxDto
-            {
-                Name = d.GetValueOrDefault("Name")?.ToString() ?? "",
-                DisplayName = d.GetValueOrDefault("DisplayName")?.ToString() ?? "",
-                PrimarySmtpAddress = d.GetValueOrDefault("PrimarySmtpAddress")?.ToString() ?? "",
-                Alias = d.GetValueOrDefault("Alias")?.ToString() ?? "",
-                Database = d.GetValueOrDefault("Database")?.ToString() ?? "",
-                OrganizationalUnit = d.GetValueOrDefault("OrganizationalUnit")?.ToString() ?? "",
-                RecipientType = d.GetValueOrDefault("RecipientType")?.ToString() ?? "",
-                RecipientTypeDetails = d.GetValueOrDefault("RecipientTypeDetails")?.ToString() ?? "",
-                WhenCreated = d.GetValueOrDefault("WhenCreated") as DateTime?,
-                WhenChanged = d.GetValueOrDefault("WhenChanged") as DateTime?,
-                IssueWarningQuota = d.GetValueOrDefault("IssueWarningQuota")?.ToString(),
-                ProhibitSendQuota = d.GetValueOrDefault("ProhibitSendQuota")?.ToString(),
-                ProhibitSendReceiveQuota = d.GetValueOrDefault("ProhibitSendReceiveQuota")?.ToString(),
-                UseDatabaseQuotaDefaults = d.GetValueOrDefault("UseDatabaseQuotaDefaults") as bool? ?? false
-            }).ToList();
-        }
+            return dictList.Select(MapMailboxDto).ToList();
 
         return new List<MailboxDto>();
     }
+
+    public async Task<IEnumerable<MailboxDto>> GetSystemMailboxesAsync()
+    {
+        _logger.LogInformation("Récupération des boîtes système Exchange");
+
+        var fields = "Name, DisplayName, PrimarySmtpAddress, Alias, Database, OrganizationalUnit, " +
+                     "RecipientType, RecipientTypeDetails, WhenCreated, WhenChanged, " +
+                     "IssueWarningQuota, ProhibitSendQuota, ProhibitSendReceiveQuota, UseDatabaseQuotaDefaults";
+
+        // Chaque switch retourne un ensemble disjoint — on les récupère en parallèle
+        var switches = new[]
+        {
+            $"Get-Mailbox -Arbitration  -ResultSize Unlimited | Select-Object {fields}",
+            $"Get-Mailbox -AuditLog     -ResultSize Unlimited | Select-Object {fields}",
+            $"Get-Mailbox -AuxAuditLog  -ResultSize Unlimited | Select-Object {fields}",
+            $"Get-Mailbox -Migration    -ResultSize Unlimited | Select-Object {fields}",
+            $"Get-Mailbox -PublicFolder -ResultSize Unlimited | Select-Object {fields}",
+            $"Get-Mailbox -Monitoring   -ResultSize Unlimited | Select-Object {fields}",
+        };
+
+        var tasks = switches.Select(s => _psService.ExecuteScriptAsync(s)).ToList();
+
+        // On exécute séquentiellement (le runspace PS est partagé, pas thread-safe)
+        var all = new List<MailboxDto>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var script in switches)
+        {
+            try
+            {
+                var result = await _psService.ExecuteScriptAsync(script);
+                if (result is List<Dictionary<string, object>> dictList)
+                {
+                    foreach (var d in dictList)
+                    {
+                        var dto = MapMailboxDto(d);
+                        var key = dto.PrimarySmtpAddress.Length > 0 ? dto.PrimarySmtpAddress : dto.Alias;
+                        if (seen.Add(key))
+                            all.Add(dto);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // Un switch non supporté sur cette version d'Exchange : on l'ignore
+                _logger.LogWarning("Switch non disponible ({Script}): {Message}", script.Split('\n')[0].Trim(), ex.Message);
+            }
+        }
+
+        return all.OrderBy(m => m.RecipientTypeDetails).ThenBy(m => m.DisplayName).ToList();
+    }
+
+    private static MailboxDto MapMailboxDto(Dictionary<string, object> d) => new()
+    {
+        Name                    = d.GetValueOrDefault("Name")?.ToString() ?? "",
+        DisplayName             = d.GetValueOrDefault("DisplayName")?.ToString() ?? "",
+        PrimarySmtpAddress      = d.GetValueOrDefault("PrimarySmtpAddress")?.ToString() ?? "",
+        Alias                   = d.GetValueOrDefault("Alias")?.ToString() ?? "",
+        Database                = d.GetValueOrDefault("Database")?.ToString() ?? "",
+        OrganizationalUnit      = d.GetValueOrDefault("OrganizationalUnit")?.ToString() ?? "",
+        RecipientType           = d.GetValueOrDefault("RecipientType")?.ToString() ?? "",
+        RecipientTypeDetails    = d.GetValueOrDefault("RecipientTypeDetails")?.ToString() ?? "",
+        WhenCreated             = d.GetValueOrDefault("WhenCreated") as DateTime?,
+        WhenChanged             = d.GetValueOrDefault("WhenChanged") as DateTime?,
+        IssueWarningQuota       = d.GetValueOrDefault("IssueWarningQuota")?.ToString(),
+        ProhibitSendQuota       = d.GetValueOrDefault("ProhibitSendQuota")?.ToString(),
+        ProhibitSendReceiveQuota= d.GetValueOrDefault("ProhibitSendReceiveQuota")?.ToString(),
+        UseDatabaseQuotaDefaults= d.GetValueOrDefault("UseDatabaseQuotaDefaults") as bool? ?? false,
+    };
 
     public async Task<MailboxDto?> GetMailboxAsync(string identity)
     {

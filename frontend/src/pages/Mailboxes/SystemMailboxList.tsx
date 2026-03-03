@@ -10,7 +10,6 @@ import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import { exchangeApi } from '../../services/api.service';
 import type { Mailbox, MailboxStatistics } from '../../types/exchange.types';
-import { SYSTEM_MAILBOX_TYPES, isSystemMailbox } from './MailboxList';
 
 const { Title } = Typography;
 const { Search } = Input;
@@ -49,10 +48,9 @@ export default function SystemMailboxList() {
   const load = async () => {
     setLoading(true);
     try {
-      const data = await exchangeApi.getMailboxes(2000);
-      const sys = data.filter(m => isSystemMailbox(m.recipientTypeDetails));
-      setMailboxes(sys);
-      setFiltered(sys);
+      const data = await exchangeApi.getSystemMailboxes();
+      setMailboxes(data);
+      setFiltered(data);
     } catch (e: any) {
       message.error(`Erreur: ${e.message}`);
     } finally {

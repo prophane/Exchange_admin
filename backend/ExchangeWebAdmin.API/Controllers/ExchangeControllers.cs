@@ -46,6 +46,33 @@ public class MailboxesController : ControllerBase
     }
 
     /// <summary>
+    /// Récupère les boîtes système (Arbitration, AuditLog, Migration, PublicFolder, Monitoring)
+    /// </summary>
+    [HttpGet("system")]
+    [ProducesResponseType(typeof(ApiResponse<IEnumerable<MailboxDto>>), 200)]
+    public async Task<IActionResult> GetSystemMailboxes()
+    {
+        try
+        {
+            var mailboxes = await _mailboxService.GetSystemMailboxesAsync();
+            return Ok(new ApiResponse<IEnumerable<MailboxDto>>
+            {
+                Success = true,
+                Data = mailboxes
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erreur lors de la récupération des boîtes système");
+            return StatusCode(500, new ApiResponse<IEnumerable<MailboxDto>>
+            {
+                Success = false,
+                Error = ex.Message
+            });
+        }
+    }
+
+    /// <summary>
     /// Récupère une boîte aux lettres spécifique
     /// </summary>
     [HttpGet("{identity}")]
