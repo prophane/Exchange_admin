@@ -6,7 +6,7 @@ import {
 import {
   FileSearchOutlined, ReloadOutlined, DownloadOutlined, LinkOutlined,
   CheckCircleOutlined, WarningOutlined, CloseCircleOutlined, InfoCircleOutlined,
-  CopyOutlined, ServerOutlined,
+  CopyOutlined, HddOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
@@ -136,7 +136,7 @@ export default function HealthCheckerPage() {
         <Card size="small" style={{ marginBottom: 20, borderLeft: `4px solid ${statusColor(globalStatus)}` }}>
           <Row gutter={24}>
             <Col>
-              <Statistic title="Serveurs analysés" value={servers.length} prefix={<ServerOutlined />} />
+              <Statistic title="Serveurs analysés" value={servers.length} prefix={<HddOutlined />} />
             </Col>
             <Col>
               <Statistic title="Critiques" value={totalRed} valueStyle={{ color: totalRed > 0 ? '#f5222d' : '#8c8c8c' }} prefix={<CloseCircleOutlined />} />
@@ -175,7 +175,7 @@ export default function HealthCheckerPage() {
               <Card
                 title={
                   <Space>
-                    <ServerOutlined />
+                    <HddOutlined />
                     <span style={{ fontSize: 16, fontWeight: 600 }}>{srv.serverName}</span>
                     <Tag color="blue">{srv.exchangeVersion}</Tag>
                     <Tag>{srv.serverRole}</Tag>

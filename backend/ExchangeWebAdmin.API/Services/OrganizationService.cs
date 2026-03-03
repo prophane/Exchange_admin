@@ -424,7 +424,8 @@ public class OrganizationService
                 "SMimeEnabled", "DisplayPhotosEnabled", "SetPhotoEnabled",
                 "WacEditingEnabled",
                 "WacViewingOnPublicComputersEnabled", "WacViewingOnPrivateComputersEnabled",
-                "WeatherEnabled", "PlacesEnabled", "LocalEventsEnabled", "InterestingCalendarsEnabled"
+                "WeatherEnabled", "PlacesEnabled", "LocalEventsEnabled", "InterestingCalendarsEnabled",
+                "MobileDeviceContactSyncEnabled"
             });
         }
 
@@ -445,9 +446,18 @@ public class OrganizationService
         B("TextMessagingEnabled",       f.TextMessagingEnabled);
         B("ActiveSyncIntegrationEnabled", f.ActiveSyncIntegrationEnabled);
         B("ContactsEnabled",            f.ContactsEnabled);
+        B("AllAddressListsEnabled",     f.AllAddressListsEnabled);
+        // MobileDeviceContactSyncEnabled : Exchange 2010 SP1+
+        if (f.MobileDeviceContactSyncEnabled.HasValue)
+        {
+            try { B("MobileDeviceContactSyncEnabled", f.MobileDeviceContactSyncEnabled); }
+            catch { /* ignoré si non supporté */ }
+        }
         // Informations (toutes versions)
         B("JournalEnabled",             f.JournalEnabled);
         B("NotesEnabled",               f.NotesEnabled);
+        B("RulesEnabled",               f.RulesEnabled);
+        B("RecoverDeletedItemsEnabled", f.RecoverDeletedItemsEnabled);
         B("RemindersAndNotificationsEnabled", f.RemindersAndNotificationsEnabled);
         // Sécurité (toutes versions)
         B("ChangePasswordEnabled",      f.ChangePasswordEnabled);
@@ -463,18 +473,23 @@ public class OrganizationService
         // Expérience utilisateur (toutes versions)
         B("ThemeSelectionEnabled",      f.ThemeSelectionEnabled);
         B("PremiumClientEnabled",       f.PremiumClientEnabled);
+        B("SignaturesEnabled",          f.SignaturesEnabled);
         B("SpellCheckerEnabled",        f.SpellCheckerEnabled);
+        // Expérience utilisateur Exchange 2013+
+        if (exVer >= 15)
+        {
+            B("WeatherEnabled",         f.WeatherEnabled);
+            B("PlacesEnabled",          f.PlacesEnabled);
+            B("LocalEventsEnabled",     f.LocalEventsEnabled);
+            B("InterestingCalendarsEnabled", f.InterestingCalendarsEnabled);
+        }
         // Carnet d'adresses (toutes versions)
-        B("AllAddressListsEnabled",     f.AllAddressListsEnabled);
         B("GlobalAddressListEnabled",   f.GlobalAddressListEnabled);
         B("PublicFoldersEnabled",       f.PublicFoldersEnabled);
         // Organisation (toutes versions)
         B("CalendarEnabled",            f.CalendarEnabled);
         B("TasksEnabled",               f.TasksEnabled);
-        B("RulesEnabled",               f.RulesEnabled);
-        B("SignaturesEnabled",          f.SignaturesEnabled);
         B("DelegateAccessEnabled",      f.DelegateAccessEnabled);
-        B("RecoverDeletedItemsEnabled", f.RecoverDeletedItemsEnabled);
         B("SearchFoldersEnabled",       f.SearchFoldersEnabled);
         // WAC Exchange 2013+ uniquement
         if (exVer >= 15)
@@ -490,6 +505,9 @@ public class OrganizationService
         B("WebReadyDocumentViewingOnPrivateComputersEnabled", f.WebReadyDocumentViewingOnPrivateComputersEnabled);
         B("WSSAccessOnPublicComputersEnabled",   f.WSSAccessOnPublicComputersEnabled);
         B("UNCAccessOnPublicComputersEnabled",   f.UNCAccessOnPublicComputersEnabled);
+        // Accès hors connexion (toutes versions)
+        if (!string.IsNullOrWhiteSpace(f.AllowOfflineOn))
+            p.Add($"-AllowOfflineOn {f.AllowOfflineOn}");
         // Enum MIME (toutes versions)
         if (!string.IsNullOrWhiteSpace(f.ActionForUnknownFileAndMIMETypes))
             p.Add($"-ActionForUnknownFileAndMIMETypes {f.ActionForUnknownFileAndMIMETypes}");

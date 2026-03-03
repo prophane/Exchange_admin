@@ -444,7 +444,7 @@ public class OrganizationController : ControllerBase
     [HttpPut("owa-policies/{name}")]
     public async Task<IActionResult> UpdateOwaMailboxPolicy(string name, [FromBody] UpdateOwaPolicyRequest req)
     {
-        try { await _org.UpdateOwaMailboxPolicyAsync(name, req.InstantMessagingEnabled, req.CalendarEnabled, req.TasksEnabled); return Ok(new { success = true }); }
+        try { await _org.UpdateOwaMailboxPolicyAsync(name, req); return Ok(new { success = true }); }
         catch (Exception ex) { return StatusCode(500, new { success = false, error = ex.Message }); }
     }
 
@@ -569,9 +569,13 @@ public record UpdateOwaPolicyRequest(
     bool? TextMessagingEnabled,
     bool? ActiveSyncIntegrationEnabled,
     bool? ContactsEnabled,
+    bool? MobileDeviceContactSyncEnabled,
+    bool? AllAddressListsEnabled,
     // Informations
     bool? JournalEnabled,
     bool? NotesEnabled,
+    bool? RulesEnabled,
+    bool? RecoverDeletedItemsEnabled,
     bool? RemindersAndNotificationsEnabled,
     // Sécurité
     bool? ChangePasswordEnabled,
@@ -583,18 +587,19 @@ public record UpdateOwaPolicyRequest(
     // Expérience utilisateur
     bool? ThemeSelectionEnabled,
     bool? PremiumClientEnabled,
+    bool? SignaturesEnabled,
     bool? SpellCheckerEnabled,
+    bool? WeatherEnabled,
+    bool? PlacesEnabled,
+    bool? LocalEventsEnabled,
+    bool? InterestingCalendarsEnabled,
     // Carnet d'adresses
-    bool? AllAddressListsEnabled,
     bool? GlobalAddressListEnabled,
     bool? PublicFoldersEnabled,
     // Organisation
     bool? CalendarEnabled,
     bool? TasksEnabled,
-    bool? RulesEnabled,
-    bool? SignaturesEnabled,
     bool? DelegateAccessEnabled,
-    bool? RecoverDeletedItemsEnabled,
     bool? SearchFoldersEnabled,
     // WAC (Exchange 2013+)
     bool? WacEditingEnabled,
@@ -607,6 +612,8 @@ public record UpdateOwaPolicyRequest(
     bool? WebReadyDocumentViewingOnPrivateComputersEnabled,
     bool? WSSAccessOnPublicComputersEnabled,
     bool? UNCAccessOnPublicComputersEnabled,
+    // Accès hors connexion
+    string? AllowOfflineOn,
     // Enum MIME
     string? ActionForUnknownFileAndMIMETypes
 );

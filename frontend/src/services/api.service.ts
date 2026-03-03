@@ -640,7 +640,21 @@ class ExchangeApiService {
     return response.data.data || [];
   }
 
-  async updateOwaMailboxPolicy(name: string, fields: { instantMessagingEnabled?: boolean; calendarEnabled?: boolean; tasksEnabled?: boolean }): Promise<void> {
+  async updateOwaMailboxPolicy(name: string, fields: {
+    instantMessagingEnabled?: boolean; textMessagingEnabled?: boolean;
+    activeSyncIntegrationEnabled?: boolean; contactsEnabled?: boolean;
+    mobileDeviceContactSyncEnabled?: boolean; allAddressListsEnabled?: boolean;
+    journalEnabled?: boolean; notesEnabled?: boolean; rulesEnabled?: boolean;
+    recoverDeletedItemsEnabled?: boolean; remindersAndNotificationsEnabled?: boolean;
+    changePasswordEnabled?: boolean; junkEmailEnabled?: boolean;
+    themeSelectionEnabled?: boolean; premiumClientEnabled?: boolean;
+    signaturesEnabled?: boolean; weatherEnabled?: boolean; placesEnabled?: boolean;
+    localEventsEnabled?: boolean; interestingCalendarsEnabled?: boolean;
+    calendarEnabled?: boolean; tasksEnabled?: boolean;
+    directFileAccessOnPublicComputersEnabled?: boolean;
+    directFileAccessOnPrivateComputersEnabled?: boolean;
+    allowOfflineOn?: string;
+  }): Promise<void> {
     await this.api.put(`/organization/owa-policies/${encodeURIComponent(name)}`, fields);
   }
 

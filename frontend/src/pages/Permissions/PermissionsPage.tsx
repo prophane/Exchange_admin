@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Table, Typography, Tag, message, Tabs, Button, Modal, Form, Input, Space, Popconfirm, Tooltip, Divider, Switch } from 'antd';
+import { Table, Typography, Tag, message, Tabs, Button, Modal, Form, Input, Space, Popconfirm, Tooltip, Divider, Switch, Checkbox, Radio } from 'antd';
 import { ReloadOutlined, LockOutlined, PlusOutlined, EditOutlined, DeleteOutlined, TeamOutlined, MinusCircleOutlined, UserAddOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { exchangeApi } from '../../services/api.service';
@@ -313,9 +313,38 @@ function OwaTab() {
   const openEdit = (row: any) => {
     setEditTarget(row);
     editForm.setFieldsValue({
+      // Communication
       instantMessagingEnabled: !!row.InstantMessagingEnabled,
+      textMessagingEnabled: !!row.TextMessagingEnabled,
+      activeSyncIntegrationEnabled: !!row.ActiveSyncIntegrationEnabled,
+      contactsEnabled: !!row.ContactsEnabled,
+      mobileDeviceContactSyncEnabled: !!row.MobileDeviceContactSyncEnabled,
+      allAddressListsEnabled: !!row.AllAddressListsEnabled,
+      // Information
+      journalEnabled: !!row.JournalEnabled,
+      notesEnabled: !!row.NotesEnabled,
+      rulesEnabled: !!row.RulesEnabled,
+      recoverDeletedItemsEnabled: !!row.RecoverDeletedItemsEnabled,
+      // Sécurité
+      changePasswordEnabled: !!row.ChangePasswordEnabled,
+      junkEmailEnabled: !!row.JunkEmailEnabled,
+      // Expérience utilisateur
+      themeSelectionEnabled: !!row.ThemeSelectionEnabled,
+      premiumClientEnabled: !!row.PremiumClientEnabled,
+      signaturesEnabled: !!row.SignaturesEnabled,
+      weatherEnabled: !!row.WeatherEnabled,
+      placesEnabled: !!row.PlacesEnabled,
+      localEventsEnabled: !!row.LocalEventsEnabled,
+      interestingCalendarsEnabled: !!row.InterestingCalendarsEnabled,
+      // Gestion du temps
       calendarEnabled: !!row.CalendarEnabled,
       tasksEnabled: !!row.TasksEnabled,
+      remindersAndNotificationsEnabled: !!row.RemindersAndNotificationsEnabled,
+      // Accès fichiers
+      directFileAccessOnPublicComputersEnabled: !!row.DirectFileAccessOnPublicComputersEnabled,
+      directFileAccessOnPrivateComputersEnabled: !!row.DirectFileAccessOnPrivateComputersEnabled,
+      // Accès hors connexion
+      allowOfflineOn: row.AllowOfflineOn || 'AllowedForSupportedBrowsers',
     });
     setEditVisible(true);
   };
@@ -326,8 +355,29 @@ function OwaTab() {
     try {
       await exchangeApi.updateOwaMailboxPolicy(editTarget.Name, {
         instantMessagingEnabled: values.instantMessagingEnabled,
+        textMessagingEnabled: values.textMessagingEnabled,
+        activeSyncIntegrationEnabled: values.activeSyncIntegrationEnabled,
+        contactsEnabled: values.contactsEnabled,
+        mobileDeviceContactSyncEnabled: values.mobileDeviceContactSyncEnabled,
+        allAddressListsEnabled: values.allAddressListsEnabled,
+        journalEnabled: values.journalEnabled,
+        notesEnabled: values.notesEnabled,
+        rulesEnabled: values.rulesEnabled,
+        recoverDeletedItemsEnabled: values.recoverDeletedItemsEnabled,
+        changePasswordEnabled: values.changePasswordEnabled,
+        junkEmailEnabled: values.junkEmailEnabled,
+        themeSelectionEnabled: values.themeSelectionEnabled,
+        premiumClientEnabled: values.premiumClientEnabled,
+        signaturesEnabled: values.signaturesEnabled,
+        weatherEnabled: values.weatherEnabled,
+        placesEnabled: values.placesEnabled,
+        localEventsEnabled: values.localEventsEnabled,
+        interestingCalendarsEnabled: values.interestingCalendarsEnabled,
         calendarEnabled: values.calendarEnabled,
         tasksEnabled: values.tasksEnabled,
+        directFileAccessOnPublicComputersEnabled: values.directFileAccessOnPublicComputersEnabled,
+        directFileAccessOnPrivateComputersEnabled: values.directFileAccessOnPrivateComputersEnabled,
+        allowOfflineOn: values.allowOfflineOn,
       });
       message.success('Stratégie OWA mise à jour');
       setEditVisible(false);
@@ -335,6 +385,16 @@ function OwaTab() {
     } catch (e: any) { message.error(`Erreur: ${e.message}`); }
     finally { setEditLoading(false); }
   };
+
+  const CB = ({ name, label }: { name: string; label: string }) => (
+    <Form.Item name={name} valuePropName="checked" style={{ marginBottom: 6 }}>
+      <Checkbox>{label}</Checkbox>
+    </Form.Item>
+  );
+
+  const SectionTitle = ({ title }: { title: string }) => (
+    <div style={{ fontWeight: 600, marginBottom: 8, marginTop: 4, color: '#1677ff' }}>{title}</div>
+  );
 
   const columns: ColumnsType<any> = [
     { title: 'Nom', dataIndex: 'Name' },
@@ -357,19 +417,110 @@ function OwaTab() {
         size="small" pagination={{ pageSize: 20 }}
         footer={() => `${data.length} stratégies OWA`}
         title={() => <Button icon={<ReloadOutlined />} onClick={load} size="small">Actualiser</Button>} />
-      <Modal title={`Modifier "${editTarget?.Name}"`} open={editVisible}
-        onCancel={() => setEditVisible(false)} onOk={handleEdit}
-        okText="Enregistrer" confirmLoading={editLoading}>
-        <Form form={editForm} layout="vertical" style={{ marginTop: 12 }}>
-          <Form.Item name="instantMessagingEnabled" label="Messagerie instantanée" valuePropName="checked">
-            <Switch />
-          </Form.Item>
-          <Form.Item name="calendarEnabled" label="Calendrier" valuePropName="checked">
-            <Switch />
-          </Form.Item>
-          <Form.Item name="tasksEnabled" label="Tâches" valuePropName="checked">
-            <Switch />
-          </Form.Item>
+
+      <Modal
+        title={`Modifier "${editTarget?.Name}"`}
+        open={editVisible}
+        onCancel={() => setEditVisible(false)}
+        onOk={handleEdit}
+        okText="Enregistrer"
+        confirmLoading={editLoading}
+        width={700}
+        styles={{ body: { paddingTop: 8 } }}
+      >
+        <Form form={editForm} layout="vertical" size="small">
+          <Tabs
+            size="small"
+            items={[
+              {
+                key: 'general',
+                label: 'général',
+                children: (
+                  <div style={{ padding: '8px 0' }}>
+                    <Form.Item label="Nom de la stratégie">
+                      <Input value={editTarget?.Name} disabled />
+                    </Form.Item>
+                  </div>
+                ),
+              },
+              {
+                key: 'features',
+                label: 'fonctionnalités',
+                children: (
+                  <div style={{ padding: '4px 0', maxHeight: 420, overflowY: 'auto' }}>
+                    <SectionTitle title="Gestion des communications" />
+                    <CB name="instantMessagingEnabled" label="Messagerie instantanée" />
+                    <CB name="textMessagingEnabled" label="Messagerie texte" />
+                    <CB name="activeSyncIntegrationEnabled" label="Exchange ActiveSync" />
+                    <CB name="contactsEnabled" label="Contacts" />
+                    <CB name="mobileDeviceContactSyncEnabled" label="Synchronisation des contacts sur appareils mobiles" />
+                    <CB name="allAddressListsEnabled" label="Toutes les listes d'adresses" />
+                    <Divider style={{ margin: '8px 0' }} />
+                    <SectionTitle title="Gestion des informations" />
+                    <CB name="journalEnabled" label="Journalisation" />
+                    <CB name="notesEnabled" label="Notes" />
+                    <CB name="rulesEnabled" label="Règles de la boîte de réception" />
+                    <CB name="recoverDeletedItemsEnabled" label="Récupérer les éléments supprimés" />
+                    <Divider style={{ margin: '8px 0' }} />
+                    <SectionTitle title="Sécurité" />
+                    <CB name="changePasswordEnabled" label="Modifier le mot de passe" />
+                    <CB name="junkEmailEnabled" label="Filtrage du courrier indésirable" />
+                    <Divider style={{ margin: '8px 0' }} />
+                    <SectionTitle title="Expérience utilisateur" />
+                    <CB name="themeSelectionEnabled" label="Thèmes" />
+                    <CB name="premiumClientEnabled" label="Client Premium" />
+                    <CB name="signaturesEnabled" label="Signature électronique" />
+                    <CB name="weatherEnabled" label="Météo" />
+                    <CB name="placesEnabled" label="Lieux" />
+                    <CB name="localEventsEnabled" label="Événements locaux" />
+                    <CB name="interestingCalendarsEnabled" label="Calendriers intéressants" />
+                    <Divider style={{ margin: '8px 0' }} />
+                    <SectionTitle title="Gestion du temps" />
+                    <CB name="calendarEnabled" label="Calendrier" />
+                    <CB name="tasksEnabled" label="Tâches" />
+                    <CB name="remindersAndNotificationsEnabled" label="Rappels et notifications" />
+                  </div>
+                ),
+              },
+              {
+                key: 'fileaccess',
+                label: 'accès aux fichiers',
+                children: (
+                  <div style={{ padding: '8px 0' }}>
+                    <div style={{ marginBottom: 12, color: '#555', fontSize: 13 }}>
+                      Sélectionnez comment les utilisateurs peuvent afficher et accéder aux pièces jointes depuis des ordinateurs publics ou privés.
+                    </div>
+                    <SectionTitle title="Ordinateur public ou partagé" />
+                    <CB name="directFileAccessOnPublicComputersEnabled" label="Accès direct aux fichiers" />
+                    <Divider style={{ margin: '8px 0' }} />
+                    <SectionTitle title="Ordinateur privé ou OWA pour appareils" />
+                    <CB name="directFileAccessOnPrivateComputersEnabled" label="Accès direct aux fichiers" />
+                  </div>
+                ),
+              },
+              {
+                key: 'offline',
+                label: 'accès hors connexion',
+                children: (
+                  <div style={{ padding: '8px 0' }}>
+                    <div style={{ marginBottom: 12, color: '#555', fontSize: 13 }}>
+                      Indiquez comment et quand les utilisateurs peuvent activer l'accès hors connexion à leur messagerie.
+                    </div>
+                    <div style={{ marginBottom: 8 }}>Activer l'accès hors connexion :</div>
+                    <Form.Item name="allowOfflineOn">
+                      <Radio.Group>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          <Radio value="AllowedForSupportedBrowsers">Toujours</Radio>
+                          <Radio value="AllowedForSupportedDevices">Ordinateur privé</Radio>
+                          <Radio value="NoAccess">Jamais</Radio>
+                        </div>
+                      </Radio.Group>
+                    </Form.Item>
+                  </div>
+                ),
+              },
+            ]}
+          />
         </Form>
       </Modal>
     </>
