@@ -62,6 +62,18 @@ const RECIPIENT_TYPE_LABELS: Record<string, { label: string; color: string }> = 
   '536870912': { label: 'Découverte',    color: 'gold'   },
 };
 
+// Types système Exchange (partagés avec SystemMailboxList)
+export const SYSTEM_MAILBOX_TYPES = new Set([
+  'ArbitrationMailbox', 'DiscoveryMailbox', 'SystemMailbox',
+  'SystemAttendantMailbox', 'PublicFolderMailbox', 'MonitoringMailbox',
+  // équivalents numériques (Exchange 2010 enum long)
+  '8192', '16384', '8388608', '536870912', '2147483648',
+]);
+
+export function isSystemMailbox(rd?: string | null): boolean {
+  return !!rd && SYSTEM_MAILBOX_TYPES.has(String(rd));
+}
+
 function RecipientTypeTag({ value }: { value?: string }) {
   if (!value) return <Tag>-</Tag>;
   const key = String(value);
@@ -269,8 +281,7 @@ export default function MailboxList() {
         { text: 'Partagée',     value: 'SharedMailbox'       },
         { text: 'Salle',        value: 'RoomMailbox'         },
         { text: 'Équipement',   value: 'EquipmentMailbox'    },
-        { text: 'Découverte',   value: 'DiscoveryMailbox'    },
-        { text: 'Arbitrage',    value: 'ArbitrationMailbox'  },
+        { text: 'Remote',       value: 'RemoteUserMailbox'   },
         { text: 'Liée',         value: 'LinkedMailbox'       },
       ],
       onFilter: (value, record) => {
@@ -326,6 +337,8 @@ export default function MailboxList() {
     },
   ];
 
+  const userMbxes = filteredMailboxes.filter(m => !isSystemMailbox(m.recipientTypeDetails));
+
   return (
     <div>
       <div className="page-header">
@@ -335,11 +348,7 @@ export default function MailboxList() {
             <Button icon={<ReloadOutlined />} onClick={loadMailboxes} loading={loading}>
               Actualiser
             </Button>
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={openCreateModal}
-            >
+            <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>
               Nouvelle boîte aux lettres
             </Button>
           </Space>
@@ -360,13 +369,13 @@ export default function MailboxList() {
 
       <Table
         columns={columns}
-        dataSource={filteredMailboxes}
+        dataSource={userMbxes}
         rowKey={(record) => record.primarySmtpAddress || ''}
         loading={loading}
         pagination={{
           pageSize: 50,
           showSizeChanger: true,
-          showTotal: (total) => `Total: ${total} boîtes aux lettres`,
+          showTotal: (total) => `Total: ${total} boîte${total > 1 ? 's' : ''} aux lettres`,
         }}
       />
 

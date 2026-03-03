@@ -1,8 +1,9 @@
 import { useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Tabs, Typography } from 'antd';
-import { MailOutlined, ShareAltOutlined, HomeOutlined, ContactsOutlined, TeamOutlined } from '@ant-design/icons';
+import { MailOutlined, ShareAltOutlined, HomeOutlined, ContactsOutlined, TeamOutlined, SettingOutlined } from '@ant-design/icons';
 import MailboxList from '../Mailboxes/MailboxList';
+import SystemMailboxList from '../Mailboxes/SystemMailboxList';
 import SharedMailboxList from './SharedMailboxList';
 import ResourceList from './ResourceList';
 import ContactList from './ContactList';
@@ -10,7 +11,7 @@ import DistributionGroupList from '../../pages/Groups/DistributionGroupList';
 
 const { Title } = Typography;
 
-const VALID_TABS = ['mailboxes', 'shared', 'resources', 'contacts', 'groups'];
+const VALID_TABS = ['mailboxes', 'system', 'shared', 'resources', 'contacts', 'groups'];
 
 export default function RecipientsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -28,6 +29,11 @@ export default function RecipientsPage() {
       key: 'mailboxes',
       label: <span><MailOutlined /> Boîtes aux lettres</span>,
       children: <MailboxList />,
+    },
+    {
+      key: 'system',
+      label: <span><SettingOutlined /> Boîtes système</span>,
+      children: <SystemMailboxList />,
     },
     {
       key: 'shared',
