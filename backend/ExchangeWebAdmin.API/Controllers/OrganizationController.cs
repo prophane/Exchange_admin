@@ -604,12 +604,12 @@ public record SetEmailAddressPolicyRequest(string? SmtpTemplate, string? Include
 public record CreateDagRequest(string Name, string WitnessServer, string WitnessDirectory);
 public record UpdateDagRequest(string? WitnessServer, string? WitnessDirectory);
 public record CreateRoleGroupRequest(string Name, string? Description);
-record CreateRoleAssignmentPolicyRequest(string Name, string? Description);
-record UpdateRoleAssignmentPolicyRequest(string? NewName, string? Description, bool? IsDefault);
+public record CreateRoleAssignmentPolicyRequest(string Name, string? Description);
+public record UpdateRoleAssignmentPolicyRequest(string? NewName, string? Description, bool? IsDefault);
 public record UpdateRoleGroupRequest(string? Description);
 public record CreateOwaPolicyRequest(string Name);
 
-record UpdateOwaPolicyRequest(
+public record UpdateOwaPolicyRequest(
     // Communication
     bool? InstantMessagingEnabled,
     bool? TextMessagingEnabled,
