@@ -25,14 +25,18 @@ Vérifier :
 2. Le champ est-il géré dans le service (appel à `B()` ou ajout dans `p`) ?
 3. Le paramètre PS existe-t-il sur Exchange SE ?
 
-### Paramètres Exchange 2013+ uniquement (jamais hors du bloc exVer >= 15)
-Liste non exhaustive — mettre systématiquement dans `if (exVer >= 15)` :
+### Paramètres Exchange 2013+ uniquement (dans le bloc exVer >= 15)
 - `SMimeEnabled`, `DisplayPhotosEnabled`, `SetPhotoEnabled`
-- `MobileDeviceContactSyncEnabled` ← **N'EXISTE PAS sur Exchange SE ni Exchange 2010** — à ne jamais envoyer
 - `WacEditingEnabled`, `WacViewingOnPublicComputersEnabled`, `WacViewingOnPrivateComputersEnabled`
-- `WeatherEnabled`, `PlacesEnabled`, `LocalEventsEnabled`, `InterestingCalendarsEnabled`
-- `-Arbitration`, `-AuditLog`, `-AuxAuditLog` (Get-Mailbox switches) → présents sur 2010, à vérifier
 - Tous paramètres `WAC` (Web App Companion)
+
+### Paramètres Exchange Online UNIQUEMENT — **NE PAS ENVOYER sur on-premises Exchange SE/2019/2016**
+Ces params causent une erreur PS 500 si envoyés :
+- `MobileDeviceContactSyncEnabled` ← supprimé du code
+- `WeatherEnabled` ← supprimé du code
+- `PlacesEnabled` ← supprimé du code
+- `LocalEventsEnabled` ← supprimé du code
+- `InterestingCalendarsEnabled` ← supprimé du code
 
 ### Pattern correct dans OrganizationService.cs
 ```csharp
@@ -44,9 +48,8 @@ B("InstantMessagingEnabled", f.InstantMessagingEnabled);
 if (exVer >= 15)
 {
     B("SMimeEnabled", f.SMimeEnabled);
-    B("MobileDeviceContactSyncEnabled", f.MobileDeviceContactSyncEnabled);
-    B("WeatherEnabled", f.WeatherEnabled);
-    // etc.
+    B("WacEditingEnabled", f.WacEditingEnabled);
+    // WeatherEnabled, PlacesEnabled, LocalEventsEnabled, InterestingCalendarsEnabled : Exchange Online uniquement — NE PAS INCLURE
 }
 ```
 
