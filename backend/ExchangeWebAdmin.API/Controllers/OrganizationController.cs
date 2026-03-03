@@ -588,10 +588,6 @@ public record UpdateOwaPolicyRequest(
     bool? PremiumClientEnabled,
     bool? SignaturesEnabled,
     bool? SpellCheckerEnabled,
-    bool? WeatherEnabled,
-    bool? PlacesEnabled,
-    bool? LocalEventsEnabled,
-    bool? InterestingCalendarsEnabled,
     // Carnet d'adresses
     bool? GlobalAddressListEnabled,
     bool? PublicFoldersEnabled,

@@ -423,9 +423,9 @@ public class OrganizationService
             {
                 "SMimeEnabled", "DisplayPhotosEnabled", "SetPhotoEnabled",
                 "WacEditingEnabled",
-                "WacViewingOnPublicComputersEnabled", "WacViewingOnPrivateComputersEnabled",
-                "WeatherEnabled", "PlacesEnabled", "LocalEventsEnabled", "InterestingCalendarsEnabled"
+                "WacViewingOnPublicComputersEnabled", "WacViewingOnPrivateComputersEnabled"
                 // MobileDeviceContactSyncEnabled : n'existe PAS sur Exchange SE ni 2010
+                // WeatherEnabled, PlacesEnabled, LocalEventsEnabled, InterestingCalendarsEnabled : Exchange Online uniquement
             });
         }
 
@@ -491,10 +491,7 @@ public class OrganizationService
             B("WacEditingEnabled",              f.WacEditingEnabled);
             B("WacViewingOnPublicComputersEnabled",  f.WacViewingOnPublicComputersEnabled);
             B("WacViewingOnPrivateComputersEnabled", f.WacViewingOnPrivateComputersEnabled);
-            B("WeatherEnabled",                 f.WeatherEnabled);
-            B("PlacesEnabled",                  f.PlacesEnabled);
-            B("LocalEventsEnabled",             f.LocalEventsEnabled);
-            B("InterestingCalendarsEnabled",    f.InterestingCalendarsEnabled);
+            // WeatherEnabled, PlacesEnabled, LocalEventsEnabled, InterestingCalendarsEnabled : Exchange Online uniquement
         }
         // Enum MIME (toutes versions)
         if (!string.IsNullOrWhiteSpace(f.ActionForUnknownFileAndMIMETypes))

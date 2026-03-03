@@ -655,8 +655,7 @@ class ExchangeApiService {
     recoverDeletedItemsEnabled?: boolean; remindersAndNotificationsEnabled?: boolean;
     changePasswordEnabled?: boolean; junkEmailEnabled?: boolean;
     themeSelectionEnabled?: boolean; premiumClientEnabled?: boolean;
-    signaturesEnabled?: boolean; weatherEnabled?: boolean; placesEnabled?: boolean;
-    localEventsEnabled?: boolean; interestingCalendarsEnabled?: boolean;
+    signaturesEnabled?: boolean;
     calendarEnabled?: boolean; tasksEnabled?: boolean;
     directFileAccessOnPublicComputersEnabled?: boolean;
     directFileAccessOnPrivateComputersEnabled?: boolean;

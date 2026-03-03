@@ -331,10 +331,6 @@ function OwaTab() {
       themeSelectionEnabled: !!row.ThemeSelectionEnabled,
       premiumClientEnabled: !!row.PremiumClientEnabled,
       signaturesEnabled: !!row.SignaturesEnabled,
-      weatherEnabled: !!row.WeatherEnabled,
-      placesEnabled: !!row.PlacesEnabled,
-      localEventsEnabled: !!row.LocalEventsEnabled,
-      interestingCalendarsEnabled: !!row.InterestingCalendarsEnabled,
       // Gestion du temps
       calendarEnabled: !!row.CalendarEnabled,
       tasksEnabled: !!row.TasksEnabled,
@@ -367,10 +363,6 @@ function OwaTab() {
         themeSelectionEnabled: values.themeSelectionEnabled,
         premiumClientEnabled: values.premiumClientEnabled,
         signaturesEnabled: values.signaturesEnabled,
-        weatherEnabled: values.weatherEnabled,
-        placesEnabled: values.placesEnabled,
-        localEventsEnabled: values.localEventsEnabled,
-        interestingCalendarsEnabled: values.interestingCalendarsEnabled,
         calendarEnabled: values.calendarEnabled,
         tasksEnabled: values.tasksEnabled,
         directFileAccessOnPublicComputersEnabled: values.directFileAccessOnPublicComputersEnabled,
@@ -467,10 +459,6 @@ function OwaTab() {
                     <CB name="themeSelectionEnabled" label="Thèmes" />
                     <CB name="premiumClientEnabled" label="Client Premium" />
                     <CB name="signaturesEnabled" label="Signature électronique" />
-                    <CB name="weatherEnabled" label="Météo" />
-                    <CB name="placesEnabled" label="Lieux" />
-                    <CB name="localEventsEnabled" label="Événements locaux" />
-                    <CB name="interestingCalendarsEnabled" label="Calendriers intéressants" />
                     <Divider style={{ margin: '8px 0' }} />
                     <SectionTitle title="Gestion du temps" />
                     <CB name="calendarEnabled" label="Calendrier" />
